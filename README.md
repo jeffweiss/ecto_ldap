@@ -1,10 +1,16 @@
 # EctoLdap
 
-**TODO: Add description**
+**Ecto Adapter for LDAP**
+
+## TODO
+1.  Implement connection pool upon adapter startup
+2.  Remove all hardcoding in favor of configuration
+3.  Migrate existing `eldap` wrapper into EctoLdap to remove dependency on `:exldap`
+
 
 ## Installation
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed as:
+If [available in Hex](https://hex.pm/docs/publish) (currently unavailable), the package can be installed as:
 
   1. Add ecto_ldap to your list of dependencies in `mix.exs`:
 
@@ -17,4 +23,3 @@ If [available in Hex](https://hex.pm/docs/publish), the package can be installed
         def application do
           [applications: [:ecto_ldap]]
         end
-
