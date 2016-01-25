@@ -6,6 +6,7 @@ defmodule Ecto.Ldap.TestUser do
     field :objectClass, :string
     field :mail, :string
     field :mobile, :string
+    field :sn, :string
   end
 
 end
