@@ -72,7 +72,15 @@ defmodule Ecto.Ldap.Adapter do
 
     something = search(prepared)
     |> IO.inspect
-    #transform `something` into whatever the execute contract needs
+
+    {:ok, {:eldap_search_result, results, []}} = something
+    count = Enum.count(results)
+    transformed_entries =
+      results
+      |> Enum.map(fn {:eldap_entry, _dn, attributes} -> attributes end)
+    {count, transformed_entries}
+    |> IO.inspect
+
   end
 
   def prepare(:all, query) do
@@ -153,6 +161,9 @@ defmodule Ecto.Ldap.Adapter do
   end
   def translate_ecto_lisp_to_eldap_filter({:<=, _, [value1, value2]}) do
     :eldap.lessOrEqual(translate_value(value1), translate_value(value2))
+  end
+  def translate_ecto_lisp_to_eldap_filter({:in, _, [value1, value2]}) do
+    :eldap.equalityMatch(translate_value(value2), translate_value(value1))
   end
 
   def translate_value({{:., [], [{:&, [], [0]}, attribute]}, _, []}) when is_atom(attribute) do
