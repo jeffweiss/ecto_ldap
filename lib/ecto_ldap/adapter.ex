@@ -27,18 +27,25 @@ defmodule Ecto.Ldap.Adapter do
 
     {:ok, connection} = Exldap.connect
     # IEx.pry
-    {:ok, search_results} = Exldap.search_field(
+
+    search_response = Exldap.search_field(
         connection,
         prepared[:base],
         prepared[:filter_parameter],
         prepared[:filter_criteria])
+    
+    IO.inspect search_response
 
-    IO.inspect search_results
+    case search_response do
+      {:ok, search_results} ->
+        :ok
+      _ ->
+       search_response
+    end
 
     # :eldap.search(repo.something, prepared)
     # transform results into list of lists
 
-    :wat
   end
 
   def prepare(:all, query) do
@@ -55,27 +62,13 @@ defmodule Ecto.Ldap.Adapter do
         :construct_filter,
         :construct_base,
         :construct_scope,
+        :construct_attributes,
       ]
       |> Enum.map(&(apply(__MODULE__, &1, [query])))
       |> Enum.filter(&(&1))
 
-
-      [ {:base, construct_base(query.from)},
-        {:filter, construct_filter(query.wheres)},
-        {:scope, construct_scope},
-        {:attributes, construct_attributes(query.select)},
-        {:filter_parameter, extract_parameter(query.wheres)},
-        {:filter_criteria, extract_criteria(query.wheres)}
-      ]
     {:nocache, query_metadata}
   end
-
-  def construct_base(%{from: from}) do
-    {:base, "ou=" <> ou <> "," <> base}
-  end
-  def constuct_base(_), do: {:base, base}
-
-  defp base, do: Keyword.get(Application.get_env(:exldap, :settings), :base)
 
   def construct_filter(%{wheres: wheres}) when is_list(wheres) do 
     filter_term = 
@@ -87,20 +80,25 @@ defmodule Ecto.Ldap.Adapter do
   end
   def construct_filter(_), do: nil
 
-  def extract_parameter(wheres) do
-    [{{_, _, [_ | parameter]}, _, _} | _] = extract_array(wheres)
-    case parameter do
-      {:&, [], [0]} -> []
-      _ -> to_string(hd(parameter))
-    end
+  defp base, do: Keyword.get(Application.get_env(:exldap, :settings), :base)
+
+  def construct_base(%{from: {from, _}}) do
+    {:base, "ou=" <> from <> "," <> base}
+  end
+  def constuct_base(_), do: {:base, base}
+
+  def construct_scope(_), do: {:scope, :eldap.wholeSubtree}
+
+  def construct_attributes(_) do
   end
 
-  def extract_criteria([]), do: []
-  def extract_criteria(wheres), do: hd(tl(extract_array(wheres)))
-
-  def extract_array([%Ecto.Query.QueryExpr{expr: {_, _, array}} | _tail]), do: array
-
-  def construct_scope, do: {:scope, :eldap.wholeSubtree}
+  #   def extract_parameter(wheres) do
+  #     [{{_, _, [_ | parameter]}, _, _} | _] = extract_array(wheres)
+  #     case parameter do
+  #       {:&, [], [0]} -> []
+  #       _ -> to_string(hd(parameter))
+  #     end
+  #   end
 
   def construct_attributes(%Ecto.Query.SelectExpr{fields: fields}) do
     case fields do
