@@ -4,17 +4,61 @@ defmodule Ecto.Ldap.Adapter do
 
   @behaviour Ecto.Adapter
 
-  defmacro __before_compile__(env) do
-    quote do
-    end
-  end
 
+  ####
+  #
+  # GenServer API
+  #
+  ####
   def start_link(repo, opts) do
-    GenServer.start_link(__MODULE__, opts)
+    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
   def init(opts) do
+    IO.inspect opts
     {:ok, opts}
+  end
+
+  ####
+  #
+  # Client API
+  #
+  ####
+  def search(search_options) do
+    GenServer.call(__MODULE__, {:search, search_options})
+  end
+
+  def base do
+    GenServer.call(__MODULE__, :base)
+  end
+
+  ####
+  #
+  #
+  # GenServer server API
+  #
+  ####
+  def handle_call({:search, search_options}, _from, state) do
+    IO.inspect(state)
+    {:ok, handle} = :eldap.open(['ldap.puppetlabs.com'], [{:port, 636}, {:ssl, true}])
+    :eldap.simple_bind(handle, Keyword.get(state, :user_dn) |> to_char_list, Keyword.get(state, :password) |> to_char_list)
+    whatever = :eldap.search(handle, search_options)
+    :eldap.close(handle)
+    {:reply, whatever, state}
+  end
+  def handle_call(:base, _from, state) do
+    {:reply, Keyword.get(state, :base) |> to_char_list, state}
+  end
+
+
+  ####
+  #
+  # Ecto.Adapter.API
+  #
+  ####
+  defmacro __before_compile__(env) do
+    quote do
+    end
   end
 
   def execute(repo, query_metadata, prepared, params, preprocess, options) do
@@ -25,27 +69,10 @@ defmodule Ecto.Ldap.Adapter do
     IO.inspect(preprocess)
     IO.inspect(options)
 
-    {:ok, connection} = Exldap.connect
-    # IEx.pry
 
-    search_response = Exldap.search_field(
-        connection,
-        prepared[:base],
-        prepared[:filter_parameter],
-        prepared[:filter_criteria])
-    
-    IO.inspect search_response
-
-    case search_response do
-      {:ok, search_results} ->
-        :ok
-      _ ->
-       search_response
-    end
-
-    # :eldap.search(repo.something, prepared)
-    # transform results into list of lists
-
+    something = search(prepared)
+    |> IO.inspect
+    #transform `something` into whatever the execute contract needs
   end
 
   def prepare(:all, query) do
@@ -62,7 +89,7 @@ defmodule Ecto.Ldap.Adapter do
         :construct_filter,
         :construct_base,
         :construct_scope,
-        :construct_attributes,
+        # :construct_attributes,
       ]
       |> Enum.map(&(apply(__MODULE__, &1, [query])))
       |> Enum.filter(&(&1))
@@ -80,10 +107,8 @@ defmodule Ecto.Ldap.Adapter do
   end
   def construct_filter(_), do: nil
 
-  defp base, do: Keyword.get(Application.get_env(:exldap, :settings), :base)
-
   def construct_base(%{from: {from, _}}) do
-    {:base, "ou=" <> from <> "," <> base}
+    {:base, to_char_list("ou=" <> from <> "," <> to_string(base)) }
   end
   def constuct_base(_), do: {:base, base}
 
@@ -130,7 +155,7 @@ defmodule Ecto.Ldap.Adapter do
     :eldap.lessOrEqual(translate_value(value1), translate_value(value2))
   end
 
-  def translate_value({{:., [], [{:&, [], [0]}, attribute]}, [], []}) when is_atom(attribute) do
+  def translate_value({{:., [], [{:&, [], [0]}, attribute]}, _, []}) when is_atom(attribute) do
     attribute
     |> to_string
     |> to_char_list
