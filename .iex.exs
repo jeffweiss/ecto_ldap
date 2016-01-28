@@ -1,11 +1,8 @@
 # Helper script for iex testing
 # $ iex -S mix
-# iex(1)> import_file "chuck.exs"
 
-# import Supervisor.Spec
-# tree = [worker(Ecto.Ldap.TestRepo, [])]
-# opts = [name: Ecto.Ldap.Sup, strategy: :one_for_one]
-# Supervisor.start_link(tree, opts)
+Code.require_file "test/support/test_repo.ex", __DIR__
+Code.require_file "test/support/test_user.ex", __DIR__
 
 require Ecto.Query
 
