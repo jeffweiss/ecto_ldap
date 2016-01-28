@@ -9,7 +9,7 @@ defmodule Ecto.Ldap.Adapter do
   # GenServer API
   #
   ####
-  def start_link(repo, opts) do
+  def start_link(_repo, opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
@@ -64,12 +64,12 @@ defmodule Ecto.Ldap.Adapter do
   # Ecto.Adapter.API
   #
   ####
-  defmacro __before_compile__(env) do
+  defmacro __before_compile__(_env) do
     quote do
     end
   end
 
-  def execute(repo, query_metadata, prepared, params, preprocess, options) do
+  def execute(_repo, query_metadata, prepared, _params, preprocess, _options) do
 
     search_response = search(prepared)
     fields = ordered_fields(query_metadata.sources)
@@ -102,7 +102,7 @@ defmodule Ecto.Ldap.Adapter do
   end
 
   def create_rows({:eldap_entry, dn, attributes}) when is_list(attributes) do
-    entry = List.flatten(
+    List.flatten(
       [dn: dn], 
       Enum.map(attributes, fn {key, value} ->
         {key |> to_string |> String.to_atom, value}
@@ -156,6 +156,9 @@ defmodule Ecto.Ldap.Adapter do
     {:nocache, query_metadata}
   end
 
+  def prepare(:update_all, _query), do: raise Exception, "Update is currently unsupported"
+  def prepare(:delete_all, _query), do: raise Exception, "Delete is currently unsupported"
+
   def construct_filter(%{wheres: wheres}) when is_list(wheres) do 
     filter_term = 
       wheres
@@ -193,16 +196,6 @@ defmodule Ecto.Ldap.Adapter do
   def convert_to_erlang(string) when is_binary(string), do: :binary.bin_to_list(string)
   def convert_to_erlang(atom) when is_atom(atom), do: atom |> Atom.to_string |> convert_to_erlang
   def convert_to_erlang(num) when is_number(num), do: num
-
-  def construct_attributes(%Ecto.Query.SelectExpr{fields: fields}) do
-    case fields do
-      [{:&, [], [0]}] -> []
-      _ -> fields
-    end
-  end
-
-  def prepare(:update_all, query), do: raise UndefinedFunctionError, "Update is currently unsupported"
-  def prepare(:delete_all, query), do: raise UndefinedFunctionError, "Delete is currently unsupported"
 
   def translate_ecto_lisp_to_eldap_filter({:or, _, list_of_subexpressions}) do
     list_of_subexpressions
