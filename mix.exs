@@ -14,7 +14,7 @@ defmodule EctoLdap.Mixfile do
   #
   # Type "mix help compile.app" for more information
   def application do
-    [applications: [:logger, :ecto, :exldap]]
+    [applications: [:logger, :ecto]]
   end
 
   # Dependencies can be Hex packages:
@@ -29,7 +29,6 @@ defmodule EctoLdap.Mixfile do
   defp deps do
     [
       {:ecto, "~> 1.1"},
-      {:exldap, "~> 0.1"}
     ]
   end
 end
