@@ -1,10 +1,16 @@
 defmodule EctoLdap.Mixfile do
   use Mix.Project
+  @description """
+    An Ecto adapter for LDAP
+  """
 
   def project do
     [app: :ecto_ldap,
      version: "0.0.1",
      elixir: "~> 1.2",
+     name: "ecto_ldap",
+     description: @description,
+     package: package,
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
      deps: deps]
@@ -30,5 +36,11 @@ defmodule EctoLdap.Mixfile do
     [
       {:ecto, "~> 1.1"},
     ]
+  end
+
+  defp package do
+    [ maintainers: ["Jeff Weiss", "Manny Batule"],
+      licenses: ["MIT"],
+      links: %{"Github" => "https://github.com/jeffweiss/ecto_ldap"} ]
   end
 end
