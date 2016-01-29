@@ -3,9 +3,8 @@
 **Ecto Adapter for LDAP**
 
 ## TODO
-1.  Implement connection pool upon adapter startup
-2.  Remove all hardcoding in favor of configuration
-3.  Migrate existing `eldap` wrapper into EctoLdap to remove dependency on `:exldap`
+1. Implement attribute updates
+2. Implement connection pool upon adapter startup
 
 
 ## Installation
