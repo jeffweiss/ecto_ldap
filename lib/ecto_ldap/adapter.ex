@@ -41,7 +41,7 @@ defmodule Ecto.Ldap.Adapter do
 
     user_dn   = Keyword.get(state, :user_dn)  |> to_char_list
     password  = Keyword.get(state, :password) |> to_char_list
-    host      = Keyword.get(state, :server)   |> to_char_list
+    host      = Keyword.get(state, :host)   |> to_char_list
     port      = Keyword.get(state, :port, 636)
     use_ssl   = Keyword.get(state, :ssl, true)
 
@@ -77,10 +77,13 @@ defmodule Ecto.Ldap.Adapter do
 
     {:ok, {:eldap_search_result, results, []}} = search_response
 
-    result_set = results
-    |> Enum.map(&create_rows(&1))
-    |> Enum.map(&prune_columns(&1, fields))
-    |> Enum.map(&generate_models(&1, preprocess, count))
+    result_set =
+      for entry <- results do
+        entry
+        |> process_entry
+        |> prune_attributes(fields)
+        |> generate_models(preprocess, count)
+      end
     # IEx.pry
 
     {count, result_set}
@@ -101,7 +104,7 @@ defmodule Ecto.Ldap.Adapter do
     end
   end
 
-  def create_rows({:eldap_entry, dn, attributes}) when is_list(attributes) do
+  def process_entry({:eldap_entry, dn, attributes}) when is_list(attributes) do
     List.flatten(
       [dn: dn], 
       Enum.map(attributes, fn {key, value} ->
@@ -109,9 +112,8 @@ defmodule Ecto.Ldap.Adapter do
       end))
   end
 
-  def prune_columns(attributes, fields) do
-    fields
-    |> Enum.map(fn column -> Keyword.get(attributes, column) end)
+  def prune_attributes(attributes, fields) do
+    for field <- fields, do: Keyword.get(attributes, field)
   end
 
   def generate_models(row, preprocess, fields) do
