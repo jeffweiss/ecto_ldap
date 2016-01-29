@@ -4,13 +4,12 @@ defmodule Ecto.Ldap.Adapter do
 
   @behaviour Ecto.Adapter
 
-
   ####
   #
   # GenServer API
   #
   ####
-  def start_link(repo, opts) do
+  def start_link(_repo, opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
@@ -39,15 +38,24 @@ defmodule Ecto.Ldap.Adapter do
   #
   ####
   def handle_call({:search, search_options}, _from, state) do
-    IO.inspect(state)
-    {:ok, handle} = :eldap.open(['ldap.puppetlabs.com'], [{:port, 636}, {:ssl, true}])
-    :eldap.simple_bind(handle, Keyword.get(state, :user_dn) |> to_char_list, Keyword.get(state, :password) |> to_char_list)
-    whatever = :eldap.search(handle, search_options)
+
+    user_dn   = Keyword.get(state, :user_dn)  |> to_char_list
+    password  = Keyword.get(state, :password) |> to_char_list
+    host      = Keyword.get(state, :server)   |> to_char_list
+    port      = Keyword.get(state, :port, 636)
+    use_ssl   = Keyword.get(state, :ssl, true)
+
+    {:ok, handle} = :eldap.open([host], [{:port, port}, {:ssl, use_ssl}])
+    :eldap.simple_bind(handle, user_dn, password)
+    search_response = :eldap.search(handle, search_options)
     :eldap.close(handle)
-    {:reply, whatever, state}
+
+    {:reply, search_response, state}
   end
+
   def handle_call(:base, _from, state) do
-    {:reply, Keyword.get(state, :base) |> to_char_list, state}
+    base = Keyword.get(state, :base) |> to_char_list
+    {:reply, base, state}
   end
 
 
@@ -56,31 +64,77 @@ defmodule Ecto.Ldap.Adapter do
   # Ecto.Adapter.API
   #
   ####
-  defmacro __before_compile__(env) do
+  defmacro __before_compile__(_env) do
     quote do
     end
   end
 
-  def execute(repo, query_metadata, prepared, params, preprocess, options) do
-    IO.inspect(repo)
-    IO.inspect(query_metadata)
-    IO.inspect(prepared)
-    IO.inspect(params)
-    IO.inspect(preprocess)
-    IO.inspect(options)
+  def execute(_repo, query_metadata, prepared, _params, preprocess, _options) do
 
+    search_response = search(prepared)
+    fields = ordered_fields(query_metadata.sources)
+    count = count_fields(query_metadata.select.fields, query_metadata.sources)
 
-    something = search(prepared)
-    |> IO.inspect
+    {:ok, {:eldap_search_result, results, []}} = search_response
 
-    {:ok, {:eldap_search_result, results, []}} = something
-    count = Enum.count(results)
-    transformed_entries =
-      results
-      |> Enum.map(fn {:eldap_entry, _dn, attributes} -> attributes end)
-    {count, transformed_entries}
-    |> IO.inspect
+    result_set = results
+    |> Enum.map(&create_rows(&1))
+    |> Enum.map(&prune_columns(&1, fields))
+    |> Enum.map(&generate_models(&1, preprocess, count))
+    # IEx.pry
 
+    {count, result_set}
+  end
+
+  def ordered_fields(sources) do
+    {_, model} = elem(sources, 0)
+    model.__schema__(:fields)
+  end
+
+  def count_fields(fields, sources) do
+    Enum.map fields, fn
+      {:&, _, [idx]} = field ->
+        {_source, model} = elem(sources, idx)
+        {field, length(model.__schema__(:fields))}
+      field ->
+        {field, 0}
+    end
+  end
+
+  def create_rows({:eldap_entry, dn, attributes}) when is_list(attributes) do
+    List.flatten(
+      [dn: dn], 
+      Enum.map(attributes, fn {key, value} ->
+        {key |> to_string |> String.to_atom, value}
+      end))
+  end
+
+  def prune_columns(attributes, fields) do
+    fields
+    |> Enum.map(fn column -> Keyword.get(attributes, column) end)
+  end
+
+  def generate_models(row, preprocess, fields) do
+    Enum.map_reduce(fields, row, fn
+      {field, 0}, [h|t] ->
+        {preprocess.(field, h, nil), t}
+      {field, count}, acc ->
+        case split_and_not_nil(acc, count, true, []) do
+          {nil, rest} -> {nil, rest}
+          {val, rest} -> {preprocess.(field, val, nil), rest}
+        end
+    end) |> elem(0)
+  end
+
+  def split_and_not_nil(rest, 0, true, _acc), do: {nil, rest}
+  def split_and_not_nil(rest, 0, false, acc), do: {:lists.reverse(acc), rest}
+
+  def split_and_not_nil([nil|t], count, all_nil?, acc) do
+    split_and_not_nil(t, count - 1, all_nil?, [nil|acc])
+  end
+
+  def split_and_not_nil([h|t], count, _all_nil?, acc) do
+    split_and_not_nil(t, count - 1, false, [h|acc])
   end
 
   def prepare(:all, query) do
@@ -89,21 +143,21 @@ defmodule Ecto.Ldap.Adapter do
     # :attributes           == SELECT
     # :filter               == WHERE (equalityMatch / search terms)
 
-    # IO.puts "I'm being prepared!"
-    IO.inspect(query)
-    # IEx.pry
     query_metadata = 
       [
         :construct_filter,
         :construct_base,
         :construct_scope,
-        # :construct_attributes,
+        :construct_attributes,
       ]
       |> Enum.map(&(apply(__MODULE__, &1, [query])))
       |> Enum.filter(&(&1))
 
     {:nocache, query_metadata}
   end
+
+  def prepare(:update_all, _query), do: raise Exception, "Update is currently unsupported"
+  def prepare(:delete_all, _query), do: raise Exception, "Delete is currently unsupported"
 
   def construct_filter(%{wheres: wheres}) when is_list(wheres) do 
     filter_term = 
@@ -122,26 +176,26 @@ defmodule Ecto.Ldap.Adapter do
 
   def construct_scope(_), do: {:scope, :eldap.wholeSubtree}
 
-  def construct_attributes(_) do
-  end
-
-  #   def extract_parameter(wheres) do
-  #     [{{_, _, [_ | parameter]}, _, _} | _] = extract_array(wheres)
-  #     case parameter do
-  #       {:&, [], [0]} -> []
-  #       _ -> to_string(hd(parameter))
-  #     end
-  #   end
-
-  def construct_attributes(%Ecto.Query.SelectExpr{fields: fields}) do
-    case fields do
-      [{:&, [], [0]}] -> []
-      _ -> fields
+  def construct_attributes(%{select: select}) do
+    case select.fields do
+      [{:&, [], [0]}] -> 
+        nil
+      attributes -> 
+        {
+          :attributes,
+          attributes
+            |> Enum.map(&extract_select/1)
+            |> Enum.map(&convert_to_erlang(&1))
+        }
     end
   end
 
-  def prepare(:update_all, query), do: raise UndefinedFunctionError, "Update is currently unsupported"
-  def prepare(:delete_all, query), do: raise UndefinedFunctionError, "Delete is currently unsupported"
+  def extract_select({{:., _, [{:&, _, _}, select]}, _, _}), do: select
+
+  def convert_to_erlang(list) when is_list(list), do: Enum.map(list, &convert_to_erlang/1)
+  def convert_to_erlang(string) when is_binary(string), do: :binary.bin_to_list(string)
+  def convert_to_erlang(atom) when is_atom(atom), do: atom |> Atom.to_string |> convert_to_erlang
+  def convert_to_erlang(num) when is_number(num), do: num
 
   def translate_ecto_lisp_to_eldap_filter({:or, _, list_of_subexpressions}) do
     list_of_subexpressions
@@ -173,4 +227,12 @@ defmodule Ecto.Ldap.Adapter do
   end
   def translate_value(%Ecto.Query.Tagged{value: value}), do: value
   def translate_value(other), do: other
+
+  def load(:id, value), do: {:ok, value}
+  def load(:string, value), do: {:ok, convert_from_erlang(value)}
+
+  def convert_from_erlang(list=[head|_]) when is_list(head), do: Enum.map(list, &convert_from_erlang/1)
+  def convert_from_erlang(string) when is_list(string), do: :binary.list_to_bin(string)
+  def convert_from_erlang(other), do: other
+
 end
