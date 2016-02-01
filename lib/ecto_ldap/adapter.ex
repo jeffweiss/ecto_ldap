@@ -14,7 +14,6 @@ defmodule Ecto.Ldap.Adapter do
   end
 
   def init(opts) do
-    IO.inspect opts
     {:ok, opts}
   end
 
@@ -23,8 +22,8 @@ defmodule Ecto.Ldap.Adapter do
   # Client API
   #
   ####
-  def search(search_options) do
-    GenServer.call(__MODULE__, {:search, search_options})
+  def search(search_options, search_filter) do
+    GenServer.call(__MODULE__, {:search, search_options, search_filter})
   end
 
   def base do
@@ -37,18 +36,10 @@ defmodule Ecto.Ldap.Adapter do
   # GenServer server API
   #
   ####
-  def handle_call({:search, search_options}, _from, state) do
-
-    user_dn   = Keyword.get(state, :user_dn)  |> to_char_list
-    password  = Keyword.get(state, :password) |> to_char_list
-    host      = Keyword.get(state, :host)   |> to_char_list
-    port      = Keyword.get(state, :port, 636)
-    use_ssl   = Keyword.get(state, :ssl, true)
-
-    {:ok, handle} = :eldap.open([host], [{:port, port}, {:ssl, use_ssl}])
-    :eldap.simple_bind(handle, user_dn, password)
-    search_response = :eldap.search(handle, search_options)
-    :eldap.close(handle)
+  def handle_call({:search, search_options, search_filter}, _from, state) do
+    {:ok, handle}   = ldap_connect(state)
+    search_response = ldap_search(handle, search_options, search_filter)
+    ldap_disconnect(handle)
 
     {:reply, search_response, state}
   end
@@ -58,6 +49,35 @@ defmodule Ecto.Ldap.Adapter do
     {:reply, base, state}
   end
 
+  def ldap_connect(state) do
+    user_dn   = Keyword.get(state, :user_dn)  |> to_char_list
+    password  = Keyword.get(state, :password) |> to_char_list
+    hostname  = Keyword.get(state, :hostname) |> to_char_list
+    port      = Keyword.get(state, :port, 636)
+    use_ssl   = Keyword.get(state, :ssl, true)
+
+    {:ok, handle} = :eldap.open([hostname], [{:port, port}, {:ssl, use_ssl}])
+    :eldap.simple_bind(handle, user_dn, password)
+    {:ok, handle}
+  end
+
+  def ldap_search(handle, initial_search_options, search_filter) do
+    filter = Keyword.get(initial_search_options, :filter)
+    search_options = case filter do
+      {:and, [equalityMatch: {:AttributeValueAssertion, _dn, {:^, [], [0]}}]} ->
+        [
+          {:base, List.first(search_filter)},
+          {:scope, :eldap.baseObject},
+          {:attributes, ['*']},
+          {:filter, :eldap.present('uid')}
+        ]
+      _ -> 
+        initial_search_options
+    end
+    :eldap.search(handle, search_options)
+  end
+
+  def ldap_disconnect(handle), do: :eldap.close(handle)
 
   ####
   #
@@ -69,82 +89,7 @@ defmodule Ecto.Ldap.Adapter do
     end
   end
 
-  def execute(_repo, query_metadata, prepared, _params, preprocess, _options) do
-
-    search_response = search(prepared)
-    fields = ordered_fields(query_metadata.sources)
-    count = count_fields(query_metadata.select.fields, query_metadata.sources)
-
-    {:ok, {:eldap_search_result, results, []}} = search_response
-
-    result_set =
-      for entry <- results do
-        entry
-        |> process_entry
-        |> prune_attributes(fields)
-        |> generate_models(preprocess, count)
-      end
-    # IEx.pry
-
-    {count, result_set}
-  end
-
-  def ordered_fields(sources) do
-    {_, model} = elem(sources, 0)
-    model.__schema__(:fields)
-  end
-
-  def count_fields(fields, sources) do
-    Enum.map fields, fn
-      {:&, _, [idx]} = field ->
-        {_source, model} = elem(sources, idx)
-        {field, length(model.__schema__(:fields))}
-      field ->
-        {field, 0}
-    end
-  end
-
-  def process_entry({:eldap_entry, dn, attributes}) when is_list(attributes) do
-    List.flatten(
-      [dn: dn], 
-      Enum.map(attributes, fn {key, value} ->
-        {key |> to_string |> String.to_atom, value}
-      end))
-  end
-
-  def prune_attributes(attributes, fields) do
-    for field <- fields, do: Keyword.get(attributes, field)
-  end
-
-  def generate_models(row, preprocess, fields) do
-    Enum.map_reduce(fields, row, fn
-      {field, 0}, [h|t] ->
-        {preprocess.(field, h, nil), t}
-      {field, count}, acc ->
-        case split_and_not_nil(acc, count, true, []) do
-          {nil, rest} -> {nil, rest}
-          {val, rest} -> {preprocess.(field, val, nil), rest}
-        end
-    end) |> elem(0)
-  end
-
-  def split_and_not_nil(rest, 0, true, _acc), do: {nil, rest}
-  def split_and_not_nil(rest, 0, false, acc), do: {:lists.reverse(acc), rest}
-
-  def split_and_not_nil([nil|t], count, all_nil?, acc) do
-    split_and_not_nil(t, count - 1, all_nil?, [nil|acc])
-  end
-
-  def split_and_not_nil([h|t], count, _all_nil?, acc) do
-    split_and_not_nil(t, count - 1, false, [h|acc])
-  end
-
   def prepare(:all, query) do
-    # ou                    == table (`FROM` statement)
-    # dc=puppetlabs,dc=com  == database
-    # :attributes           == SELECT
-    # :filter               == WHERE (equalityMatch / search terms)
-
     query_metadata = 
       [
         :construct_filter,
@@ -222,7 +167,7 @@ defmodule Ecto.Ldap.Adapter do
     :eldap.equalityMatch(translate_value(value2), translate_value(value1))
   end
 
-  def translate_value({{:., [], [{:&, [], [0]}, attribute]}, _, []}) when is_atom(attribute) do
+  def translate_value({{:., [], [{:&, [], [0]}, attribute]}, _ecto_type, []}) when is_atom(attribute) do
     attribute
     |> to_string
     |> to_char_list
@@ -230,8 +175,80 @@ defmodule Ecto.Ldap.Adapter do
   def translate_value(%Ecto.Query.Tagged{value: value}), do: value
   def translate_value(other), do: other
 
+  def execute(_repo, query_metadata, prepared, params, preprocess, _options) do
+
+    search_response   = search(prepared, params)
+    fields            = ordered_fields(query_metadata.sources)
+    count             = count_fields(query_metadata.select.fields, query_metadata.sources)
+
+    {:ok, {:eldap_search_result, results, []}} = search_response
+
+    result_set =
+      for entry <- results do
+        entry
+        |> process_entry
+        |> prune_attributes(fields)
+        |> generate_models(preprocess, count)
+      end
+
+    {count, result_set}
+  end
+
+  def ordered_fields(sources) do
+    {_, model} = elem(sources, 0)
+    model.__schema__(:fields)
+  end
+
+  def count_fields(fields, sources) do
+    Enum.map fields, fn
+      {:&, _, [idx]} = field ->
+        {_source, model} = elem(sources, idx)
+        {field, length(model.__schema__(:fields))}
+      field ->
+        {field, 0}
+    end
+  end
+
+  def process_entry({:eldap_entry, dn, attributes}) when is_list(attributes) do
+    List.flatten(
+      [dn: dn], 
+      Enum.map(attributes, fn {key, value} ->
+        {key |> to_string |> String.to_atom, value}
+      end))
+  end
+
+  def prune_attributes(attributes, fields) do
+    for field <- fields, do: Keyword.get(attributes, field)
+  end
+
+  def generate_models(row, preprocess, fields) do
+    Enum.map_reduce(fields, row, fn
+      {field, 0}, [h|t] ->
+        {preprocess.(field, h, nil), t}
+      {field, count}, acc ->
+        case split_and_not_nil(acc, count, true, []) do
+          {nil, rest} -> {nil, rest}
+          {val, rest} -> {preprocess.(field, val, nil), rest}
+        end
+    end) |> elem(0)
+  end
+
+  def split_and_not_nil(rest, 0, true, _acc), do: {nil, rest}
+  def split_and_not_nil(rest, 0, false, acc), do: {:lists.reverse(acc), rest}
+
+  def split_and_not_nil([nil|t], count, all_nil?, acc) do
+    split_and_not_nil(t, count - 1, all_nil?, [nil|acc])
+  end
+
+  def split_and_not_nil([h|t], count, _all_nil?, acc) do
+    split_and_not_nil(t, count - 1, false, [h|acc])
+  end
+
   def load(:id, value), do: {:ok, value}
   def load(:string, value), do: {:ok, convert_from_erlang(value)}
+
+  def dump(:string, value), do: {:ok, convert_to_erlang(value)}
+  def dump(_, value), do: {:ok, convert_to_erlang(value)}
 
   def convert_from_erlang(list=[head|_]) when is_list(head), do: Enum.map(list, &convert_from_erlang/1)
   def convert_from_erlang(string) when is_list(string), do: :binary.list_to_bin(string)
