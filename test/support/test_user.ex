@@ -1,12 +1,19 @@
 defmodule Ecto.Ldap.TestUser do
   use Ecto.Schema
+  import Ecto.Changeset
 
+  @primary_key {:dn, :string, []}
   schema "users" do
-    field :dn, :string
     field :objectClass, :string
     field :mail, :string
     field :mobile, :string
     field :sn, :string
+  end
+
+  def changeset(model, params \\ :empty) do
+    model
+    |> cast(params, ~w(dn), ~w(objectClass mail mobile sn))
+    |> unique_constraint(:dn)
   end
 
 end
