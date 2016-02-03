@@ -22,8 +22,8 @@ defmodule Ecto.Ldap.Adapter do
   # Client API
   #
   ####
-  def search(search_options, search_filter) do
-    GenServer.call(__MODULE__, {:search, search_options, search_filter})
+  def search(search_options) do
+    GenServer.call(__MODULE__, {:search, search_options})
   end
 
   def base do
@@ -36,9 +36,9 @@ defmodule Ecto.Ldap.Adapter do
   # GenServer server API
   #
   ####
-  def handle_call({:search, search_options, search_filter}, _from, state) do
+  def handle_call({:search, search_options}, _from, state) do
     {:ok, handle}   = ldap_connect(state)
-    search_response = ldap_search(handle, search_options, search_filter)
+    search_response = :eldap.search(handle, search_options)
     ldap_disconnect(handle)
 
     {:reply, search_response, state}
@@ -59,22 +59,6 @@ defmodule Ecto.Ldap.Adapter do
     {:ok, handle} = :eldap.open([hostname], [{:port, port}, {:ssl, use_ssl}])
     :eldap.simple_bind(handle, user_dn, password)
     {:ok, handle}
-  end
-
-  def ldap_search(handle, initial_search_options, search_filter) do
-    filter = Keyword.get(initial_search_options, :filter)
-    search_options = case filter do
-      {:and, [equalityMatch: {:AttributeValueAssertion, _dn, {:^, [], [0]}}]} ->
-        [
-          {:base, List.first(search_filter)},
-          {:scope, :eldap.baseObject},
-          {:attributes, ['*']},
-          {:filter, :eldap.present('uid')}
-        ]
-      _ -> 
-        initial_search_options
-    end
-    :eldap.search(handle, search_options)
   end
 
   def ldap_disconnect(handle), do: :eldap.close(handle)
@@ -106,15 +90,20 @@ defmodule Ecto.Ldap.Adapter do
   def prepare(:update_all, _query), do: raise Exception, "Update is currently unsupported"
   def prepare(:delete_all, _query), do: raise Exception, "Delete is currently unsupported"
 
-  def construct_filter(%{wheres: wheres}) when is_list(wheres) do 
+  def construct_filter(%{wheres: wheres}) when is_list(wheres) do
     filter_term = 
       wheres
-      |> Stream.map(&Map.get(&1, :expr))
-      |> Enum.map(&translate_ecto_lisp_to_eldap_filter/1)
+      |> Enum.map(&Map.get(&1, :expr))
+    {:filter, filter_term}
+  end
+
+  def construct_filter(wheres, params) when is_list(wheres) do
+    filter_term =
+      wheres
+      |> Enum.map(&(translate_ecto_lisp_to_eldap_filter(&1, params)))
       |> :eldap.and
     {:filter, filter_term}
   end
-  def construct_filter(_), do: nil
 
   def construct_base(%{from: {from, _}}) do
     {:base, to_char_list("ou=" <> from <> "," <> to_string(base)) }
@@ -144,40 +133,54 @@ defmodule Ecto.Ldap.Adapter do
   def convert_to_erlang(atom) when is_atom(atom), do: atom |> Atom.to_string |> convert_to_erlang
   def convert_to_erlang(num) when is_number(num), do: num
 
-  def translate_ecto_lisp_to_eldap_filter({:or, _, list_of_subexpressions}) do
+  def translate_ecto_lisp_to_eldap_filter({:or, _, list_of_subexpressions}, params) do
     list_of_subexpressions
-    |> Enum.map(&translate_ecto_lisp_to_eldap_filter/1)
+    |> Enum.map(&(translate_ecto_lisp_to_eldap_filter(&1, params)))
     |> :eldap.or
   end
-  def translate_ecto_lisp_to_eldap_filter({:and, _, list_of_subexpressions}) do
+  def translate_ecto_lisp_to_eldap_filter({:and, _, list_of_subexpressions}, params) do
     list_of_subexpressions
-    |> Enum.map(&translate_ecto_lisp_to_eldap_filter/1)
+    |> Enum.map(&(translate_ecto_lisp_to_eldap_filter(&1, params)))
     |> :eldap.and
   end
-  def translate_ecto_lisp_to_eldap_filter({:==, _, [value1, value2]}) do
+  # {:==, [], [{{:., [], [{:&, [], [0]}, :sn]}, [ecto_type: :string], []}, {:^, [], [0]}]}, ['Weiss', 'jeff.weiss@puppetlabs.com']
+  def translate_ecto_lisp_to_eldap_filter({op, [], [value1, {:^, [], [idx]}]}, params) do
+    translate_ecto_lisp_to_eldap_filter({op, [], [value1, Enum.at(params, idx)]}, params)
+  end
+
+  def translate_ecto_lisp_to_eldap_filter({:==, _, [value1, value2]}, _) do
     :eldap.equalityMatch(translate_value(value1), translate_value(value2))
   end
-  def translate_ecto_lisp_to_eldap_filter({:>=, _, [value1, value2]}) do
+  def translate_ecto_lisp_to_eldap_filter({:>=, _, [value1, value2]}, _) do
     :eldap.greaterOrEqual(translate_value(value1), translate_value(value2))
   end
-  def translate_ecto_lisp_to_eldap_filter({:<=, _, [value1, value2]}) do
+  def translate_ecto_lisp_to_eldap_filter({:<=, _, [value1, value2]}, _) do
     :eldap.lessOrEqual(translate_value(value1), translate_value(value2))
   end
-  def translate_ecto_lisp_to_eldap_filter({:in, _, [value1, value2]}) do
+  def translate_ecto_lisp_to_eldap_filter({:in, _, [value1, value2]}, _) do
     :eldap.equalityMatch(translate_value(value2), translate_value(value1))
   end
 
   def translate_value({{:., [], [{:&, [], [0]}, attribute]}, _ecto_type, []}) when is_atom(attribute) do
-    attribute
+    translate_value(attribute)
+  end
+  def translate_value(%Ecto.Query.Tagged{value: value}), do: value
+  def translate_value(atom) when is_atom(atom) do
+    atom
     |> to_string
     |> to_char_list
   end
-  def translate_value(%Ecto.Query.Tagged{value: value}), do: value
   def translate_value(other), do: other
 
-  def execute(_repo, query_metadata, prepared, params, preprocess, _options) do
-
-    search_response   = search(prepared, params)
+  def execute(_repo, query_metadata, prepared, params, preprocess, options) do
+    IO.inspect prepared
+    IO.inspect params
+    {:filter, filter} = construct_filter(Keyword.get(prepared, :filter), params)
+    options_filter = :eldap.and(translate_options_to_filter(options))
+    full_filter = :eldap.and([filter, options_filter])
+    full_search_terms = Keyword.put(prepared, :filter, full_filter)
+    IO.inspect(full_search_terms |> replace_dn_search_with_uid_present)
+    search_response   = search(full_search_terms)
     fields            = ordered_fields(query_metadata.sources)
     count             = count_fields(query_metadata.select.fields, query_metadata.sources)
 
@@ -192,6 +195,20 @@ defmodule Ecto.Ldap.Adapter do
       end
 
     {count, result_set}
+  end
+
+  def translate_options_to_filter([]), do: []
+  def translate_options_to_filter(list) when is_list(list) do
+    for {attr, value} <- list do
+      translate_ecto_lisp_to_eldap_filter({:==, [], [attr, value]}, [])
+    end
+  end
+
+  def replace_dn_search_with_uid_present(search_options) when is_list(search_options)do
+    # TODO: This is where we'll pull out the dn term and replace it with
+    # :eldap.present('uid')
+    # We'll then take that extracted dn term and modify the base and the scope
+    search_options
   end
 
   def ordered_fields(sources) do
