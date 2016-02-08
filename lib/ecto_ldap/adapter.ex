@@ -175,12 +175,14 @@ defmodule Ecto.Ldap.Adapter do
   def execute(_repo, query_metadata, prepared, params, preprocess, options) do
     IO.inspect prepared
     IO.inspect params
-    {:filter, filter} = construct_filter(Keyword.get(prepared, :filter), params)
-    options_filter = :eldap.and(translate_options_to_filter(options))
-    full_filter = :eldap.and([filter, options_filter])
-    full_search_terms = Keyword.put(prepared, :filter, full_filter)
-    IO.inspect(full_search_terms |> replace_dn_search_with_uid_present)
-    search_response   = search(full_search_terms)
+
+    {:filter, filter}  = construct_filter(Keyword.get(prepared, :filter), params)
+    options_filter     = :eldap.and(translate_options_to_filter(options))
+    full_filter        = :eldap.and([filter, options_filter])
+    full_search_terms  = Keyword.put(prepared, :filter, full_filter)
+    final_search_terms = replace_dn_search_with_uid_present(full_search_terms)
+
+    search_response   = search(final_search_terms)
     fields            = ordered_fields(query_metadata.sources)
     count             = count_fields(query_metadata.select.fields, query_metadata.sources)
 
@@ -204,11 +206,15 @@ defmodule Ecto.Ldap.Adapter do
     end
   end
 
-  def replace_dn_search_with_uid_present(search_options) when is_list(search_options)do
-    # TODO: This is where we'll pull out the dn term and replace it with
-    # :eldap.present('uid')
-    # We'll then take that extracted dn term and modify the base and the scope
-    search_options
+  def replace_dn_search_with_uid_present(search_terms) when is_list(search_terms) do
+    case search_terms[:filter] do
+      {:and, [and: [equalityMatch: {:AttributeValueAssertion, 'dn', uid}], and: []]} ->
+        search_terms
+        |> Keyword.update!(:filter, fn _ -> :eldap.present('uid') end)
+        |> Keyword.update!(:base,   fn _ -> uid end)
+      _ ->
+        search_terms
+    end
   end
 
   def ordered_fields(sources) do
