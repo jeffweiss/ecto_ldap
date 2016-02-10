@@ -144,6 +144,9 @@ defmodule Ecto.Ldap.Adapter do
     |> Enum.map(&(translate_ecto_lisp_to_eldap_filter(&1, params)))
     |> :eldap.and
   end
+  def translate_ecto_lisp_to_eldap_filter({:not, _, [subexpression]}, params) do
+    :eldap.not(translate_ecto_lisp_to_eldap_filter(subexpression, params))
+  end
   # {:==, [], [{{:., [], [{:&, [], [0]}, :sn]}, [ecto_type: :string], []}, {:^, [], [0]}]}, ['Weiss', 'jeff.weiss@puppetlabs.com']
   def translate_ecto_lisp_to_eldap_filter({op, [], [value1, {:^, [], [idx]}]}, params) do
     translate_ecto_lisp_to_eldap_filter({op, [], [value1, Enum.at(params, idx)]}, params)
@@ -161,6 +164,10 @@ defmodule Ecto.Ldap.Adapter do
   def translate_ecto_lisp_to_eldap_filter({:in, _, [value1, value2]}, _) do
     :eldap.equalityMatch(translate_value(value2), translate_value(value1))
   end
+  def translate_ecto_lisp_to_eldap_filter({:is_nil, _, [value]}, _) do
+    :eldap.not(:eldap.present(translate_value(value)))
+  end
+
 
   def translate_value({{:., [], [{:&, [], [0]}, attribute]}, _ecto_type, []}) when is_atom(attribute) do
     translate_value(attribute)
