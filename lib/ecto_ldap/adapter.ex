@@ -23,7 +23,7 @@ defmodule Ecto.Ldap.Adapter do
   #
   ####
   def search(search_options) do
-    GenServer.call(__MODULE__, {:search, search_options})
+    GenServer.call(__MODULE__, {:search, search_options}, :infinity)
   end
 
   def base do
@@ -304,6 +304,7 @@ defmodule Ecto.Ldap.Adapter do
 
   def load(:id, value), do: {:ok, value}
   def load(:string, value), do: {:ok, convert_from_erlang(value)}
+  def load(:binary, value), do: {:ok, convert_from_erlang(value)}
 
   def dump(:string, value), do: {:ok, convert_to_erlang(value)}
   def dump(_, value), do: {:ok, convert_to_erlang(value)}
