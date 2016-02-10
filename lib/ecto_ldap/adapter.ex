@@ -173,16 +173,19 @@ defmodule Ecto.Ldap.Adapter do
   def translate_value(other), do: other
 
   def execute(_repo, query_metadata, prepared, params, preprocess, options) do
-    IO.inspect prepared
-    IO.inspect params
     {:filter, filter} = construct_filter(Keyword.get(prepared, :filter), params)
     options_filter = :eldap.and(translate_options_to_filter(options))
     full_filter = :eldap.and([filter, options_filter])
-    full_search_terms = Keyword.put(prepared, :filter, full_filter)
-    IO.inspect(full_search_terms |> replace_dn_search_with_uid_present)
-    search_response   = search(full_search_terms)
-    fields            = ordered_fields(query_metadata.sources)
-    count             = count_fields(query_metadata.select.fields, query_metadata.sources)
+
+    search_response =
+      prepared
+      |> Keyword.put(:filter, full_filter)
+      |> replace_dn_search_with_objectclass_present
+      |> merge_search_options(prepared)
+      |> search
+
+    fields = ordered_fields(query_metadata.sources)
+    count = count_fields(query_metadata.select.fields, query_metadata.sources)
 
     {:ok, {:eldap_search_result, results, []}} = search_response
 
@@ -204,12 +207,42 @@ defmodule Ecto.Ldap.Adapter do
     end
   end
 
-  def replace_dn_search_with_uid_present(search_options) when is_list(search_options)do
-    # TODO: This is where we'll pull out the dn term and replace it with
-    # :eldap.present('uid')
-    # We'll then take that extracted dn term and modify the base and the scope
-    search_options
+  def merge_search_options({filter, []}, full_search_terms) do
+    full_search_terms
+    |> Keyword.put(:filter, filter)
   end
+  def merge_search_options({filter, [base: dn]}, full_search_terms) do
+    full_search_terms
+    |> Keyword.put(:filter, filter)
+    |> Keyword.put(:base, dn)
+    |> Keyword.put(:scope, :eldap.baseObject)
+  end
+  def merge_search_options(_, _) do
+    raise "Unable to search across multiple base DNs"
+  end
+
+  def replace_dn_search_with_objectclass_present(search_options) when is_list(search_options)do
+    {filter, dns} =
+      search_options
+      |> Keyword.get(:filter)
+      |> replace_dn_filters
+    {filter, dns |> List.flatten |> Enum.uniq}
+  end
+
+  def replace_dn_filters([]), do: {[], []}
+  def replace_dn_filters([head|tail]) do
+    {h, hdns} = replace_dn_filters(head)
+    {t, tdns} = replace_dn_filters(tail)
+    {[h|t], [hdns|tdns]}
+  end
+  def replace_dn_filters({:equalityMatch, {:AttributeValueAssertion, 'dn', dn}}) do
+    {:eldap.present('objectClass'), {:base, dn}}
+  end
+  def replace_dn_filters({conjunction, list}) when is_list(list) do
+    {l, dns} = replace_dn_filters(list)
+    {{conjunction, l}, dns}
+  end
+  def replace_dn_filters(other), do: {other, []}
 
   def ordered_fields(sources) do
     {_, model} = elem(sources, 0)
