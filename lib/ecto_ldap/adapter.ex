@@ -112,16 +112,17 @@ defmodule Ecto.Ldap.Adapter do
 
   def construct_scope(_), do: {:scope, :eldap.wholeSubtree}
 
-  def construct_attributes(%{select: select}) do
+  def construct_attributes(%{select: select, sources: sources}) do
     case select.fields do
       [{:&, [], [0]}] -> 
-        nil
+        { :attributes,
+          sources |> ordered_fields |> Enum.map(&convert_to_erlang/1) }
       attributes -> 
         {
           :attributes,
           attributes
             |> Enum.map(&extract_select/1)
-            |> Enum.map(&convert_to_erlang(&1))
+            |> Enum.map(&convert_to_erlang/1)
         }
     end
   end
