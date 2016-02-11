@@ -305,6 +305,9 @@ defmodule Ecto.Ldap.Adapter do
   def load(:id, value), do: {:ok, value}
   def load(:string, value), do: {:ok, convert_from_erlang(value)}
   def load(:binary, value), do: {:ok, convert_from_erlang(value)}
+  def load({:array, :string}, value) do
+    {:ok, value |> Enum.map(&convert_from_erlang/1) }
+  end
 
   def dump(:string, value), do: {:ok, convert_to_erlang(value)}
   def dump(_, value), do: {:ok, convert_to_erlang(value)}
