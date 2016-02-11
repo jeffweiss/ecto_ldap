@@ -26,6 +26,10 @@ defmodule Ecto.Ldap.Adapter do
     GenServer.call(__MODULE__, {:search, search_options})
   end
 
+  def update(schema_meta, fields, filters) do
+    GenServer.call(__MODULE__, {:update, schema_meta, fields, filters})
+  end
+
   def base do
     GenServer.call(__MODULE__, :base)
   end
@@ -42,6 +46,29 @@ defmodule Ecto.Ldap.Adapter do
     ldap_disconnect(handle)
 
     {:reply, search_response, state}
+  end
+
+  def handle_call({:update, schema_meta, fields, filters}, _from, state) do
+
+    {:ok, handle} = ldap_connect(state)
+    [base] = Keyword.get(filters, :dn)
+
+    modify_operations =
+      for {attribute, value} <- fields do
+        generate_modify_operation(attribute, value)
+      end
+
+    result = :eldap.modify(handle, base, modify_operations)
+    ldap_disconnect(handle)
+
+    {:reply, result, state}
+  end
+
+  def generate_modify_operation(attribute, []) do
+    :eldap.mod_replace(convert_to_erlang(attribute), [])
+  end
+  def generate_modify_operation(attribute, value) when is_list(value) do
+    :eldap.mod_replace(convert_to_erlang(attribute), value)
   end
 
   def handle_call(:base, _from, state) do
@@ -302,10 +329,23 @@ defmodule Ecto.Ldap.Adapter do
     split_and_not_nil(t, count - 1, false, [h|acc])
   end
 
+  def update(repo, schema_meta, fields, filters, _autogen_id, returning, options) do
+    case update(schema_meta, fields, filters) do
+      :ok ->
+        {:ok, fields}
+      error ->
+        IO.inspect error
+        {:invalid, []}
+    end
+  end
+
   def load(:id, value), do: {:ok, value}
   def load(:string, value), do: {:ok, convert_from_erlang(value)}
+  def load({:array, :string}, []), do: {:ok, []}
+  def load({:array, :string}, value), do: {:ok, convert_from_erlang(value)}
 
-  def dump(:string, value), do: {:ok, convert_to_erlang(value)}
+  def dump(:string, value) when is_list(value), do: {:ok, convert_to_erlang(value)}
+  def dump(:string, value), do: {:ok, [convert_to_erlang(value)]}
   def dump(_, value), do: {:ok, convert_to_erlang(value)}
 
   def convert_from_erlang(list=[head|_]) when is_list(head), do: Enum.map(list, &convert_from_erlang/1)
