@@ -155,6 +155,9 @@ defmodule Ecto.Ldap.Adapter do
   def translate_ecto_lisp_to_eldap_filter({:==, _, [value1, value2]}, _) do
     :eldap.equalityMatch(translate_value(value1), translate_value(value2))
   end
+  def translate_ecto_lisp_to_eldap_filter({:!=, _, [value1, value2]}, _) do
+    :eldap.not(:eldap.equalityMatch(translate_value(value1), translate_value(value2)))
+  end
   def translate_ecto_lisp_to_eldap_filter({:>=, _, [value1, value2]}, _) do
     :eldap.greaterOrEqual(translate_value(value1), translate_value(value2))
   end
