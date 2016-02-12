@@ -306,6 +306,7 @@ defmodule Ecto.Ldap.Adapter do
   end
 
   def load(:id, value), do: {:ok, value}
+  def load(_, nil), do: {:ok, nil}
   def load(:string, value), do: {:ok, convert_from_erlang(value)}
   def load(:binary, value), do: {:ok, convert_from_erlang(value)}
   def load({:array, :string}, value) do
