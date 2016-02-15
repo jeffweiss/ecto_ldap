@@ -38,8 +38,8 @@ defmodule Ecto.Ldap.Adapter do
   ####
   def handle_call({:search, search_options}, _from, state) do
     {:ok, handle}   = ldap_connect(state)
-    search_response = :eldap.search(handle, search_options)
-    ldap_disconnect(handle)
+    search_response = ldap_api(state).search(handle, search_options)
+    ldap_api(state).close(handle)
 
     {:reply, search_response, state}
   end
@@ -49,6 +49,10 @@ defmodule Ecto.Ldap.Adapter do
     {:reply, base, state}
   end
 
+  def ldap_api(state) do
+    Keyword.get(state, :ldap_api, :eldap)
+  end
+
   def ldap_connect(state) do
     user_dn   = Keyword.get(state, :user_dn)  |> to_char_list
     password  = Keyword.get(state, :password) |> to_char_list
@@ -56,12 +60,10 @@ defmodule Ecto.Ldap.Adapter do
     port      = Keyword.get(state, :port, 636)
     use_ssl   = Keyword.get(state, :ssl, true)
 
-    {:ok, handle} = :eldap.open([hostname], [{:port, port}, {:ssl, use_ssl}])
-    :eldap.simple_bind(handle, user_dn, password)
+    {:ok, handle} = ldap_api(state).open([hostname], [{:port, port}, {:ssl, use_ssl}])
+    ldap_api(state).simple_bind(handle, user_dn, password)
     {:ok, handle}
   end
-
-  def ldap_disconnect(handle), do: :eldap.close(handle)
 
   ####
   #

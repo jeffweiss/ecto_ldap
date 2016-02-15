@@ -4,11 +4,12 @@ defmodule Ecto.Ldap.TestUser do
 
   @primary_key {:dn, :string, autogenerate: false}
   schema "users" do
-    field :objectClass, :string
+    field :objectClass, {:array, :string}
     field :mail, :string
     field :mobile, :string
     field :sn, :string
     field :uid, :string
+    field :jpegPhoto, :binary
   end
 
   def changeset(model, params \\ :empty) do
