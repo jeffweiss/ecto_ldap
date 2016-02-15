@@ -1,6 +1,6 @@
 use Mix.Config
 
-config :ecto,
+config :ecto, Ecto.Ldap.TestRepo,
   ldap_api: Ecto.Ldap.Adapter.Sandbox,
   adapter: Ecto.Ldap.Adapter,
   hostname: "ldap.example.com",

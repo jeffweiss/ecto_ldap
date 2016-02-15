@@ -1,8 +1,38 @@
 defmodule EctoLdapTest do
+  alias Ecto.Ldap.TestRepo
+  alias Ecto.Ldap.TestUser
   use ExUnit.Case
   doctest EctoLdap
 
-  test "the truth" do
-    assert 1 + 1 == 2
+  test "retrieve model by id/dn" do
+    dn = "uid=jeff.weiss,ou=users,dc=example,dc=com"
+    user = TestRepo.get TestUser, dn
+    assert user != nil
+    assert user.dn == dn
+  end
+
+  test "retrieve by unknown dn returns nil" do
+    dn = "uid=unknown,ou=users,dc=example,dc=com"
+    assert(TestRepo.get(TestUser, dn) == nil)
+  end
+
+  test "model fields not in ldap attributes are nil" do
+    user = TestRepo.get TestUser, "uid=jeff.weiss,ou=users,dc=example,dc=com"
+    assert user.mobile == nil
+  end
+
+  test "model fields with multiple ldap values return the first one" do
+    user = TestRepo.get(TestUser, "uid=jeff.weiss,ou=users,dc=example,dc=com")
+    assert user.mail == "jeff.weiss@example.com"
+  end
+
+  test "model fields which are arrays return all ldap values" do
+    user = TestRepo.get(TestUser, "uid=jeff.weiss,ou=users,dc=example,dc=com")
+    assert Enum.count(user.objectClass) > 1
+  end
+
+  test "all returns both users from our sandbox" do
+    users = TestRepo.all TestUser
+    assert Enum.count(users) == 2
   end
 end

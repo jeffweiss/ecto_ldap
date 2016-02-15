@@ -7,7 +7,7 @@ defmodule Ecto.Ldap.Adapter.Sandbox do
       {'homeDirectory', ['/home/jeff.weiss']},
       {'l', ['Portland']},
       {'loginShell', ['/bin/zsh']},
-      {'mail', ['jeff.weiss@example.com']},
+      {'mail', ['jeff.weiss@example.com', 'jeff.weiss@example.org']},
       {'objectClass', ['posixAccount','shadowAccount', 'inetOrgPerson', 'ldapPublicKey', 'top']},
       {'sn', ['Weiss']},
       {'sshPublicKey', ['ssh-rsa AAAA/TOTALLY+FAKE/KEY jeff.weiss@example.com']},
@@ -44,6 +44,9 @@ defmodule Ecto.Ldap.Adapter.Sandbox do
   end
   def search(_pid, %{scope: :baseObject, base: 'uid=manny,ou=users,dc=example,dc=com'}) do
     {:ok, {:eldap_search_result, [@manny], []}}
+  end
+  def search(_pid, %{scope: :baseObject}) do
+    {:ok, {:eldap_search_result, [], []}}
   end
   def search(_pid, %{base: 'ou=users,dc=example,dc=com'}) do
     {:ok, {:eldap_search_result, [@jeffweiss, @manny], []}}
