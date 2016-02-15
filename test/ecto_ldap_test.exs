@@ -35,4 +35,14 @@ defmodule EctoLdapTest do
     users = TestRepo.all TestUser
     assert Enum.count(users) == 2
   end
+
+  test "get_by with criteria" do
+    user = TestRepo.get_by TestUser, uid: "jeff.weiss"
+    assert user != nil
+  end
+
+  test "all with criteria" do
+    users = TestRepo.all TestUser, uid: "jeff.weiss"
+    assert Enum.count(users) == 1
+  end
 end

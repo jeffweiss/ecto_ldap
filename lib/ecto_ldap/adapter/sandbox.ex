@@ -48,6 +48,12 @@ defmodule Ecto.Ldap.Adapter.Sandbox do
   def search(_pid, %{scope: :baseObject}) do
     {:ok, {:eldap_search_result, [], []}}
   end
+  def search(_pid, %{base: 'ou=users,dc=example,dc=com', filter: {:and, [and: [equalityMatch: {:AttributeValueAssertion, 'uid', 'jeff.weiss'}], and: []]}}) do
+    {:ok, {:eldap_search_result, [@jeffweiss], []}}
+  end
+  def search(_pid, %{base: 'ou=users,dc=example,dc=com', filter: {:and, [and: [], and: [equalityMatch: {:AttributeValueAssertion, 'uid', 'jeff.weiss'}]]}}) do
+    {:ok, {:eldap_search_result, [@jeffweiss], []}}
+  end
   def search(_pid, %{base: 'ou=users,dc=example,dc=com'}) do
     {:ok, {:eldap_search_result, [@jeffweiss, @manny], []}}
   end

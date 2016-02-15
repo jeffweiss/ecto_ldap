@@ -216,7 +216,7 @@ defmodule Ecto.Ldap.Adapter do
   def translate_options_to_filter([]), do: []
   def translate_options_to_filter(list) when is_list(list) do
     for {attr, value} <- list do
-      translate_ecto_lisp_to_eldap_filter({:==, [], [attr, value]}, [])
+      translate_ecto_lisp_to_eldap_filter({:==, [], [attr, convert_to_erlang(value)]}, [])
     end
   end
 
