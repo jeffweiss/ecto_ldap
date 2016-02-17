@@ -2,14 +2,9 @@
 
 **Ecto Adapter for LDAP**
 
-## TODO
-1. Implement attribute updates
-2. Implement connection pool upon adapter startup
-
-
 ## Installation
 
-If [available in Hex](https://hex.pm/docs/publish) (currently unavailable), the package can be installed as:
+[From Hex](https://hex.pm/docs/publish), the package can be installed as follows:
 
   1. Add ecto_ldap to your list of dependencies in `mix.exs`:
 
