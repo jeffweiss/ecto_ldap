@@ -154,6 +154,21 @@ defmodule Ecto.Ldap.Adapter do
     translate_ecto_lisp_to_eldap_filter({op, [], [value1, Enum.at(params, idx)]}, params)
   end
 
+  def translate_ecto_lisp_to_eldap_filter({:ilike, _, [value1, "%" <> value2]}, _) do
+    case String.last(value2) do
+      "%" -> :eldap.substrings(translate_value(value1), [{:any, translate_value(String.slice(value2, 0..-2))}])
+      _ -> :eldap.substrings(translate_value(value1), [{:final, translate_value(value2)}])
+    end
+  end
+  def translate_ecto_lisp_to_eldap_filter({:ilike, _, [value1, value2]}, _) do
+    case String.last(value2) do
+      "%" -> :eldap.substrings(translate_value(value1), [{:initial, translate_value(String.slice(value2, 0..-2))}])
+      _ -> :eldap.substrings(translate_value(value1), [{:any, translate_value(value2)}])
+    end
+  end
+  def translate_ecto_lisp_to_eldap_filter({:like, a, b}, params) do
+    translate_ecto_lisp_to_eldap_filter({:ilike, a, b}, params)
+  end
   def translate_ecto_lisp_to_eldap_filter({:==, _, [value1, value2]}, _) do
     :eldap.equalityMatch(translate_value(value1), translate_value(value2))
   end
@@ -183,7 +198,7 @@ defmodule Ecto.Ldap.Adapter do
     |> to_string
     |> to_char_list
   end
-  def translate_value(other), do: other
+  def translate_value(other), do: convert_to_erlang(other)
 
   def execute(_repo, query_metadata, prepared, params, preprocess, options) do
     {:filter, filter} = construct_filter(Keyword.get(prepared, :filter), params)
