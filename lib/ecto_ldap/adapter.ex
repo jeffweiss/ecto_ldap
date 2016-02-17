@@ -26,6 +26,10 @@ defmodule Ecto.Ldap.Adapter do
     GenServer.call(__MODULE__, {:search, search_options}, :infinity)
   end
 
+  def update(dn, modify_operations) do
+    GenServer.call(__MODULE__, {:update, dn, modify_operations}, :infinity)
+  end
+
   def base do
     GenServer.call(__MODULE__, :base)
   end
@@ -42,6 +46,14 @@ defmodule Ecto.Ldap.Adapter do
     ldap_api(state).close(handle)
 
     {:reply, search_response, state}
+  end
+
+  def handle_call({:update, dn, modify_operations}, _from, state) do
+    {:ok, handle}   = ldap_connect(state)
+    update_response = ldap_api(state).modify(handle, dn, modify_operations)
+    ldap_api(state).close(handle)
+
+    {:reply, update_response, state}
   end
 
   def handle_call(:base, _from, state) do
@@ -322,6 +334,37 @@ defmodule Ecto.Ldap.Adapter do
     split_and_not_nil(t, count - 1, false, [h|acc])
   end
 
+  def update(repo, schema_meta, fields, filters, _autogenerate_id, returning, options) do
+
+    dn = Keyword.get(filters, :dn)
+
+    modify_operations =
+      for {attribute, value} <- fields do
+        type = schema_meta.model.__schema__(:type, attribute)
+        generate_modify_operation(attribute, value, type)
+      end
+
+    case update(dn, modify_operations) do
+      :ok ->
+        {:ok, fields}
+      error ->
+        IO.inspect error
+        {:invalid, []}
+    end
+  end
+
+  def generate_modify_operation(attribute, [], {:array, _}) do
+    :eldap.mod_replace(convert_to_erlang(attribute), [])
+  end
+
+  def generate_modify_operation(attribute, value, {:array, :string}) do
+    :eldap.mod_replace(convert_to_erlang(attribute), value)
+  end
+
+  def generate_modify_operation(attribute, value, :string) do
+    :eldap.mod_replace(convert_to_erlang(attribute), [value])
+  end
+
   def load(:id, value), do: {:ok, value}
   def load(_, nil), do: {:ok, nil}
   def load(:string, value), do: {:ok, trim_converted(convert_from_erlang(value))}
@@ -334,6 +377,7 @@ defmodule Ecto.Ldap.Adapter do
   def trim_converted(other), do: other
 
   def dump(:string, value), do: {:ok, convert_to_erlang(value)}
+  def dump({:array, :string}, value) when is_list(value), do: {:ok, convert_to_erlang(value)}
   def dump(_, value), do: {:ok, convert_to_erlang(value)}
 
   def convert_from_erlang(list=[head|_]) when is_list(head), do: Enum.map(list, &convert_from_erlang/1)
