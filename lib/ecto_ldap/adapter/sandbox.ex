@@ -1,4 +1,6 @@
 defmodule Ecto.Ldap.Adapter.Sandbox do
+  use GenServer
+
   @jeffweiss {:eldap_entry, 'uid=jeff.weiss,ou=users,dc=example,dc=com', [
       {'cn', ['Jeff Weiss']},
       {'displayName', ['Jeff Weiss']},
@@ -35,34 +37,44 @@ defmodule Ecto.Ldap.Adapter.Sandbox do
       {'uidNumber', ['5002']},
     ]}
 
+  def init(_) do
+    {:ok, [@jeffweiss, @manny]}
+  end
 
   def search(pid, search_options) when is_list(search_options) do
-    search(pid, Map.new(search_options))
+    GenServer.call(pid, {:search, Map.new(search_options)})
   end
-  def search(_pid, %{scope: :baseObject, base: 'uid=jeff.weiss,ou=users,dc=example,dc=com'}) do
-    {:ok, {:eldap_search_result, [@jeffweiss], []}}
+  def handle_call({:search, %{scope: :baseObject, base: 'uid=jeff.weiss,ou=users,dc=example,dc=com'}}, _from, state) do
+    ldap_response = {:ok, {:eldap_search_result, [List.first(state)], []}}
+    {:reply, ldap_response, state}
   end
-  def search(_pid, %{scope: :baseObject, base: 'uid=manny,ou=users,dc=example,dc=com'}) do
-    {:ok, {:eldap_search_result, [@manny], []}}
+  def handle_call({:search, %{scope: :baseObject, base: 'uid=manny,ou=users,dc=example,dc=com'}}, _from, state) do
+    ldap_response = {:ok, {:eldap_search_result, [List.last(state)], []}}
+    {:reply, ldap_response, state}
   end
-  def search(_pid, %{scope: :baseObject}) do
-    {:ok, {:eldap_search_result, [], []}}
+  def handle_call({:search, %{scope: :baseObject}}, _from, state) do
+    ldap_response = {:ok, {:eldap_search_result, [], []}}
+    {:reply, ldap_response, state}
   end
-  def search(_pid, %{base: 'ou=users,dc=example,dc=com', filter: {:and, [and: [equalityMatch: {:AttributeValueAssertion, 'uid', 'jeff.weiss'}], and: []]}}) do
-    {:ok, {:eldap_search_result, [@jeffweiss], []}}
+  def handle_call({:search, %{base: 'ou=users,dc=example,dc=com', filter: {:and, [and: [equalityMatch: {:AttributeValueAssertion, 'uid', 'jeff.weiss'}], and: []]}}}, _from, state) do
+    ldap_response = {:ok, {:eldap_search_result, [List.first(state)], []}}
+    {:reply, ldap_response, state}
   end
-  def search(_pid, %{base: 'ou=users,dc=example,dc=com', filter: {:and, [and: [], and: [equalityMatch: {:AttributeValueAssertion, 'uid', 'jeff.weiss'}]]}}) do
-    {:ok, {:eldap_search_result, [@jeffweiss], []}}
+  def handle_call({:search, %{base: 'ou=users,dc=example,dc=com', filter: {:and, [and: [], and: [equalityMatch: {:AttributeValueAssertion, 'uid', 'jeff.weiss'}]]}}}, _from, state) do
+    ldap_response = {:ok, {:eldap_search_result, [List.first(state)], []}}
+    {:reply, ldap_response, state}
   end
-  def search(_pid, %{base: 'ou=users,dc=example,dc=com'}) do
-    {:ok, {:eldap_search_result, [@jeffweiss, @manny], []}}
+  def handle_call({:search, %{base: 'ou=users,dc=example,dc=com'}}, _from, state) do
+    ldap_response = {:ok, {:eldap_search_result, state, []}}
+    {:reply, ldap_response, state}
   end
-  def search(_pid, _search_options) do
-    {:ok, {:eldap_search_result, [], []}}
+  def handle_call({:search, _search_options}, _from, state) do
+    ldap_response = {:ok, {:eldap_search_result, [], []}}
+    {:reply, ldap_response, state}
   end
 
   def open(_hosts, _options) do
-    {:ok, nil}
+    GenServer.start_link(__MODULE__, [])
   end
 
   def simple_bind(_pid, 'uid=sample_user,ou=users,dc=example,dc=com', 'password'), do: :ok
