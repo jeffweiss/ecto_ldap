@@ -1,4 +1,6 @@
 defmodule Ecto.Ldap.Adapter.Sandbox do
+  use GenServer
+
   @jeffweiss {:eldap_entry, 'uid=jeff.weiss,ou=users,dc=example,dc=com', [
       {'cn', ['Jeff Weiss']},
       {'displayName', ['Jeff Weiss']},
@@ -9,6 +11,7 @@ defmodule Ecto.Ldap.Adapter.Sandbox do
       {'loginShell', ['/bin/zsh']},
       {'mail', ['jeff.weiss@example.com', 'jeff.weiss@example.org']},
       {'objectClass', ['posixAccount','shadowAccount', 'inetOrgPerson', 'ldapPublicKey', 'top']},
+      {'skills', ['dad jokes', 'being awesome', 'elixir']},
       {'sn', ['Weiss']},
       {'sshPublicKey', ['ssh-rsa AAAA/TOTALLY+FAKE/KEY jeff.weiss@example.com']},
       {'st', ['OR']},
@@ -27,6 +30,7 @@ defmodule Ecto.Ldap.Adapter.Sandbox do
       {'loginShell', ['/bin/bash']},
       {'mail', ['manny@example.com']},
       {'objectClass', ['posixAccount','shadowAccount', 'inetOrgPerson', 'ldapPublicKey', 'top']},
+      {'skills', ['nunchuck', 'computer hacking', 'bowhunting']},
       {'sn', ['Batule']},
       {'sshPublicKey', ['ssh-rsa AAAA/TOTALLY+FAKE/KEY+2 manny@example.com']},
       {'st', ['OR']},
@@ -35,34 +39,70 @@ defmodule Ecto.Ldap.Adapter.Sandbox do
       {'uidNumber', ['5002']},
     ]}
 
+  def init(_) do
+    {:ok, [@jeffweiss, @manny]}
+  end
 
   def search(pid, search_options) when is_list(search_options) do
-    search(pid, Map.new(search_options))
+    GenServer.call(pid, {:search, Map.new(search_options)})
   end
-  def search(_pid, %{scope: :baseObject, base: 'uid=jeff.weiss,ou=users,dc=example,dc=com'}) do
-    {:ok, {:eldap_search_result, [@jeffweiss], []}}
+  def modify(pid, dn, modify_operations) do
+    GenServer.call(pid, {:update, dn, modify_operations})
   end
-  def search(_pid, %{scope: :baseObject, base: 'uid=manny,ou=users,dc=example,dc=com'}) do
-    {:ok, {:eldap_search_result, [@manny], []}}
+  def handle_call({:search, %{scope: :baseObject, base: 'uid=jeff.weiss,ou=users,dc=example,dc=com'}}, _from, state) do
+    ldap_response = {:ok, {:eldap_search_result, [List.first(state)], []}}
+    {:reply, ldap_response, state}
   end
-  def search(_pid, %{scope: :baseObject}) do
-    {:ok, {:eldap_search_result, [], []}}
+  def handle_call({:search, %{scope: :baseObject, base: 'uid=manny,ou=users,dc=example,dc=com'}}, _from, state) do
+    ldap_response = {:ok, {:eldap_search_result, [List.last(state)], []}}
+    {:reply, ldap_response, state}
   end
-  def search(_pid, %{base: 'ou=users,dc=example,dc=com', filter: {:and, [and: [equalityMatch: {:AttributeValueAssertion, 'uid', 'jeff.weiss'}], and: []]}}) do
-    {:ok, {:eldap_search_result, [@jeffweiss], []}}
+  def handle_call({:search, %{scope: :baseObject}}, _from, state) do
+    ldap_response = {:ok, {:eldap_search_result, [], []}}
+    {:reply, ldap_response, state}
   end
-  def search(_pid, %{base: 'ou=users,dc=example,dc=com', filter: {:and, [and: [], and: [equalityMatch: {:AttributeValueAssertion, 'uid', 'jeff.weiss'}]]}}) do
-    {:ok, {:eldap_search_result, [@jeffweiss], []}}
+  def handle_call({:search, %{base: 'ou=users,dc=example,dc=com', filter: {:and, [and: [equalityMatch: {:AttributeValueAssertion, 'uid', 'jeff.weiss'}], and: []]}}}, _from, state) do
+    ldap_response = {:ok, {:eldap_search_result, [List.first(state)], []}}
+    {:reply, ldap_response, state}
   end
-  def search(_pid, %{base: 'ou=users,dc=example,dc=com'}) do
-    {:ok, {:eldap_search_result, [@jeffweiss, @manny], []}}
+  def handle_call({:search, %{base: 'ou=users,dc=example,dc=com', filter: {:and, [and: [], and: [equalityMatch: {:AttributeValueAssertion, 'uid', 'jeff.weiss'}]]}}}, _from, state) do
+    ldap_response = {:ok, {:eldap_search_result, [List.first(state)], []}}
+    {:reply, ldap_response, state}
   end
-  def search(_pid, _search_options) do
-    {:ok, {:eldap_search_result, [], []}}
+  def handle_call({:search, %{base: 'ou=users,dc=example,dc=com'}}, _from, state) do
+    ldap_response = {:ok, {:eldap_search_result, state, []}}
+    {:reply, ldap_response, state}
+  end
+  def handle_call({:search, _search_options}, _from, state) do
+    ldap_response = {:ok, {:eldap_search_result, [], []}}
+    {:reply, ldap_response, state}
+  end
+  def handle_call({:update, 'uid=manny,ou=users,dc=example,dc=com', modify_operations}, _from, state) do
+    {:eldap_entry, dn, attributes} = List.last(state)
+
+    attribute_map       = Enum.into(attributes, %{})
+    updated_attributes  = Enum.reduce(
+      modify_operations,
+      attribute_map,
+      fn ({:ModifyRequest_changes_SEQOF, :replace, {:PartialAttribute, attribute, []}}, attribute_map) ->
+          Map.update!(attribute_map, attribute, fn _ -> nil end)
+         ({:ModifyRequest_changes_SEQOF, :replace, {:PartialAttribute, attribute, new_value}}, attribute_map) ->
+          Map.update!(attribute_map, attribute, fn _ -> new_value end) end)
+    |> Enum.to_list
+
+    updated_eldap_entry = {:eldap_entry, dn, updated_attributes}
+    updated_state       = [List.first(state), updated_eldap_entry]
+
+    {:reply, :ok, updated_state}
   end
 
   def open(_hosts, _options) do
-    {:ok, nil}
+    __MODULE__
+    |> Process.whereis
+    |> case do
+      nil -> GenServer.start_link(__MODULE__, [], name: __MODULE__)
+      pid -> {:ok, pid}
+    end
   end
 
   def simple_bind(_pid, 'uid=sample_user,ou=users,dc=example,dc=com', 'password'), do: :ok
