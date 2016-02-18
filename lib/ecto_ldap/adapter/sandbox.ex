@@ -80,21 +80,25 @@ defmodule Ecto.Ldap.Adapter.Sandbox do
   def handle_call({:update, 'uid=manny,ou=users,dc=example,dc=com', modify_operations}, _from, state) do
     {:eldap_entry, dn, attributes} = List.last(state)
 
-    attribute_map       = Enum.into(attributes, %{})
-    updated_attributes  = Enum.reduce(
-      modify_operations,
-      attribute_map,
-      fn ({:ModifyRequest_changes_SEQOF, :replace, {:PartialAttribute, attribute, []}}, attribute_map) ->
-          Map.update!(attribute_map, attribute, fn _ -> nil end)
-         ({:ModifyRequest_changes_SEQOF, :replace, {:PartialAttribute, attribute, new_value}}, attribute_map) ->
-          Map.update!(attribute_map, attribute, fn _ -> new_value end) end)
-    |> Enum.to_list
+    updated_attributes =
+      modify_operations
+      |> Enum.reduce(
+          Enum.into(attributes, %{}),
+          &replace_value_in_attribute_map/2)
+      |> Enum.to_list
 
-    updated_eldap_entry = {:eldap_entry, dn, updated_attributes}
-    updated_state       = [List.first(state), updated_eldap_entry]
+    updated_state = [List.first(state), {:eldap_entry, dn, updated_attributes}]
 
     {:reply, :ok, updated_state}
   end
+
+  defp replace_value_in_attribute_map({_, :replace, {_, attribute, []}}, attribute_map) do
+    Map.put(attribute_map, attribute, nil)
+  end
+  defp replace_value_in_attribute_map({_, :replace, {_, attribute, value}}, attribute_map) do
+    Map.put(attribute_map, attribute, value)
+  end
+
 
   def open(_hosts, _options) do
     __MODULE__

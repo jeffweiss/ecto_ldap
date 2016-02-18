@@ -82,7 +82,7 @@ defmodule EctoLdapTest do
 
   test "update multiple attributes at once" do
     surname = "Batulo"
-    mail    = "manny@example.co.uk"
+    mail = "manny@example.co.uk"
 
     TestUser
     |> TestRepo.get("uid=manny,ou=users,dc=example,dc=com")
@@ -90,7 +90,7 @@ defmodule EctoLdapTest do
     |> TestRepo.update
 
     updated_user = TestRepo.get(TestUser, "uid=manny,ou=users,dc=example,dc=com")
-    assert updated_user.sn   == surname
+    assert updated_user.sn  == surname
     assert updated_user.mail == mail
   end
 
