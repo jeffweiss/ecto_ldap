@@ -1,6 +1,5 @@
 defmodule Ecto.Ldap.Adapter do
   use GenServer
-  require IEx
 
   @behaviour Ecto.Adapter
 
@@ -23,11 +22,11 @@ defmodule Ecto.Ldap.Adapter do
   #
   ####
   def search(search_options) do
-    GenServer.call(__MODULE__, {:search, search_options}, :infinity)
+    GenServer.call(__MODULE__, {:search, search_options})
   end
 
   def update(dn, modify_operations) do
-    GenServer.call(__MODULE__, {:update, dn, modify_operations}, :infinity)
+    GenServer.call(__MODULE__, {:update, dn, modify_operations})
   end
 
   def base do
@@ -347,12 +346,15 @@ defmodule Ecto.Ldap.Adapter do
     case update(dn, modify_operations) do
       :ok ->
         {:ok, fields}
-      error ->
-        IO.inspect error
-        {:invalid, []}
+      {:error, reason} ->
+        IO.inspect reason
+        {:invalid, [reason]}
     end
   end
 
+  def generate_modify_operation(attribute, nil, _) do
+    :eldap.mod_replace(convert_to_erlang(attribute), [])
+  end
   def generate_modify_operation(attribute, [], {:array, _}) do
     :eldap.mod_replace(convert_to_erlang(attribute), [])
   end
@@ -376,6 +378,7 @@ defmodule Ecto.Ldap.Adapter do
   def trim_converted(list) when is_list(list), do: hd(list)
   def trim_converted(other), do: other
 
+  def dump(_, nil), do: {:ok, nil}
   def dump(:string, value), do: {:ok, convert_to_erlang(value)}
   def dump({:array, :string}, value) when is_list(value), do: {:ok, convert_to_erlang(value)}
   def dump(_, value), do: {:ok, convert_to_erlang(value)}
