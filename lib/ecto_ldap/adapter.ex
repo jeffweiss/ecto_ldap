@@ -232,7 +232,7 @@ defmodule Ecto.Ldap.Adapter do
       for entry <- results do
         entry
         |> process_entry
-        |> prune_attributes(fields)
+        |> prune_attributes(fields, count)
         |> generate_models(preprocess, count)
       end
 
@@ -289,13 +289,14 @@ defmodule Ecto.Ldap.Adapter do
   end
 
   def count_fields(fields, sources) do
-    Enum.map fields, fn
+    fields
+    |> Enum.map(fn
       {:&, _, [idx]} = field ->
         {_source, model} = elem(sources, idx)
         {field, length(model.__schema__(:fields))}
       field ->
         {field, 0}
-    end
+    end)
   end
 
   def process_entry({:eldap_entry, dn, attributes}) when is_list(attributes) do
@@ -306,8 +307,13 @@ defmodule Ecto.Ldap.Adapter do
       end))
   end
 
-  def prune_attributes(attributes, fields) do
+  def prune_attributes(attributes, fields, [{{:&, [], [0]}, _}]) do
     for field <- fields, do: Keyword.get(attributes, field)
+  end
+  def prune_attributes(attributes, all_fields, selected_fields) do
+    for {{{:., [], [{:&, [], [0]}, field]}, [ecto_type: :string], []}, 0} <- selected_fields do
+      Keyword.get(attributes, field)
+    end
   end
 
   def generate_models(row, preprocess, fields) do

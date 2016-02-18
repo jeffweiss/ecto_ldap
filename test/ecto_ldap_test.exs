@@ -1,6 +1,7 @@
 defmodule EctoLdapTest do
   alias Ecto.Ldap.TestRepo
   alias Ecto.Ldap.TestUser
+  require Ecto.Query
   use ExUnit.Case
   doctest EctoLdap
 
@@ -105,4 +106,15 @@ defmodule EctoLdapTest do
     assert updated_user == user
   end
 
+  test "fields returned are limited by select" do
+    values = TestRepo.all(Ecto.Query.from(u in TestUser, select: u.uid))
+    assert values == ["jeff.weiss", "manny"]
+  end
+
+  test "multiple fields ordered correctly by select" do
+    values = TestRepo.all(Ecto.Query.from(u in TestUser, where: u.uid == "jeff.weiss", select: [u.sn, u.mail]))
+    assert values == [["Weiss", "jeff.weiss@example.com"]]
+    values = TestRepo.all(Ecto.Query.from(u in TestUser, where: u.uid == "jeff.weiss", select: [u.mail, u.sn]))
+    assert values == [["jeff.weiss@example.com", "Weiss"]]
+  end
 end
