@@ -9,7 +9,7 @@
   1. Add ecto_ldap to your list of dependencies in `mix.exs`:
 
         def deps do
-          [{:ecto_ldap, "~> 0.1.8"}]
+          [{:ecto_ldap, "~> 0.2"}]
         end
 
   2. Ensure ecto_ldap is started before your application:
