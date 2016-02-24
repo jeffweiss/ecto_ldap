@@ -142,11 +142,6 @@ defmodule Ecto.Ldap.Adapter do
 
   def extract_select({{:., _, [{:&, _, _}, select]}, _, _}), do: select
 
-  def convert_to_erlang(list) when is_list(list), do: Enum.map(list, &convert_to_erlang/1)
-  def convert_to_erlang(string) when is_binary(string), do: :binary.bin_to_list(string)
-  def convert_to_erlang(atom) when is_atom(atom), do: atom |> Atom.to_string |> convert_to_erlang
-  def convert_to_erlang(num) when is_number(num), do: num
-
   def translate_ecto_lisp_to_eldap_filter({:or, _, list_of_subexpressions}, params) do
     list_of_subexpressions
     |> Enum.map(&(translate_ecto_lisp_to_eldap_filter(&1, params)))
@@ -365,13 +360,14 @@ defmodule Ecto.Ldap.Adapter do
     :eldap.mod_replace(convert_to_erlang(attribute), [])
   end
 
-  def generate_modify_operation(attribute, value, {:array, :string}) do
+  def generate_modify_operation(attribute, value, {:array, _}) do
     :eldap.mod_replace(convert_to_erlang(attribute), value)
   end
 
-  def generate_modify_operation(attribute, value, :string) do
+  def generate_modify_operation(attribute, value, _) do
     :eldap.mod_replace(convert_to_erlang(attribute), [value])
   end
+
 
   def load(:id, value), do: {:ok, value}
   def load(_, nil), do: {:ok, nil}
@@ -392,5 +388,10 @@ defmodule Ecto.Ldap.Adapter do
   def convert_from_erlang(list=[head|_]) when is_list(head), do: Enum.map(list, &convert_from_erlang/1)
   def convert_from_erlang(string) when is_list(string), do: :binary.list_to_bin(string)
   def convert_from_erlang(other), do: other
+
+  def convert_to_erlang(list) when is_list(list), do: Enum.map(list, &convert_to_erlang/1)
+  def convert_to_erlang(string) when is_binary(string), do: :binary.bin_to_list(string)
+  def convert_to_erlang(atom) when is_atom(atom), do: atom |> Atom.to_string |> convert_to_erlang
+  def convert_to_erlang(num) when is_number(num), do: num
 
 end
