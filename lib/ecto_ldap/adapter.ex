@@ -161,16 +161,16 @@ defmodule Ecto.Ldap.Adapter do
   end
 
   def translate_ecto_lisp_to_eldap_filter({:ilike, _, [value1, "%" <> value2]}, _) do
-    case String.last(value2) do
-      "%" -> :eldap.substrings(translate_value(value1), [{:any, translate_value(String.slice(value2, 0..-2))}])
-      _ -> :eldap.substrings(translate_value(value1), [{:final, translate_value(value2)}])
-    end
+    like_with_leading_wildcard(value1, value2)
   end
-  def translate_ecto_lisp_to_eldap_filter({:ilike, _, [value1, value2]}, _) do
-    case String.last(value2) do
-      "%" -> :eldap.substrings(translate_value(value1), [{:initial, translate_value(String.slice(value2, 0..-2))}])
-      _ -> :eldap.substrings(translate_value(value1), [{:any, translate_value(value2)}])
-    end
+  def translate_ecto_lisp_to_eldap_filter({:ilike, _, [value1, [37|value2]]}, _) do
+    like_with_leading_wildcard(value1, convert_from_erlang(value2))
+  end
+  def translate_ecto_lisp_to_eldap_filter({:ilike, _, [value1, value2]}, _) when is_list(value2) do
+    like_without_leading_wildcard(value1, convert_from_erlang(value2))
+  end
+  def translate_ecto_lisp_to_eldap_filter({:ilike, _, [value1, value2]}, _) when is_binary(value2) do
+    like_without_leading_wildcard(value1, value2)
   end
   def translate_ecto_lisp_to_eldap_filter({:like, a, b}, params) do
     translate_ecto_lisp_to_eldap_filter({:ilike, a, b}, params)
@@ -194,6 +194,18 @@ defmodule Ecto.Ldap.Adapter do
     :eldap.not(:eldap.present(translate_value(value)))
   end
 
+  defp like_with_leading_wildcard(value1, value2) do
+    case String.last(value2) do
+      "%" -> :eldap.substrings(translate_value(value1), [{:any, translate_value(String.slice(value2, 0..-2))}])
+      _ -> :eldap.substrings(translate_value(value1), [{:final, translate_value(value2)}])
+    end
+  end
+  defp like_without_leading_wildcard(value1, value2) do
+    case String.last(value2) do
+      "%" -> :eldap.substrings(translate_value(value1), [{:initial, translate_value(String.slice(value2, 0..-2))}])
+      _ -> :eldap.substrings(translate_value(value1), [{:any, translate_value(value2)}])
+    end
+  end
 
   def translate_value({{:., [], [{:&, [], [0]}, attribute]}, _ecto_type, []}) when is_atom(attribute) do
     translate_value(attribute)

@@ -117,4 +117,45 @@ defmodule EctoLdapTest do
     values = TestRepo.all(Ecto.Query.from(u in TestUser, where: u.uid == "jeff.weiss", select: [u.mail, u.sn]))
     assert values == [["jeff.weiss@example.com", "Weiss"]]
   end
+
+  test "like without explicit %" do
+    values = TestRepo.all(Ecto.Query.from(u in TestUser, where: like(u.sn, "Weis")))
+    assert Enum.count(values) == 1
+    assert hd(values).uid == "jeff.weiss"
+    query = "Weis"
+    values = TestRepo.all(Ecto.Query.from(u in TestUser, where: like(u.sn, ^query)))
+    assert Enum.count(values) == 1
+    assert hd(values).uid == "jeff.weiss"
+  end
+
+  test "like with trailing %" do
+    values = TestRepo.all(Ecto.Query.from(u in TestUser, where: like(u.uid, "jeff%")))
+    assert Enum.count(values) == 1
+    assert hd(values).uid == "jeff.weiss"
+    query = "jeff%"
+    values = TestRepo.all(Ecto.Query.from(u in TestUser, where: like(u.uid, ^query)))
+    assert Enum.count(values) == 1
+    assert hd(values).uid == "jeff.weiss"
+  end
+
+  test "like with leading %" do
+    values = TestRepo.all(Ecto.Query.from(u in TestUser, where: like(u.sn, "%eiss")))
+    assert Enum.count(values) == 1
+    assert hd(values).uid == "jeff.weiss"
+    query = "%eiss"
+    values = TestRepo.all(Ecto.Query.from(u in TestUser, where: like(u.sn, ^query)))
+    assert Enum.count(values) == 1
+    assert hd(values).uid == "jeff.weiss"
+  end
+
+  test "like with leading and trailing %" do
+    values = TestRepo.all(Ecto.Query.from(u in TestUser, where: like(u.sn, "%Weis%")))
+    assert Enum.count(values) == 1
+    assert hd(values).uid == "jeff.weiss"
+    query = "%Weis%"
+    values = TestRepo.all(Ecto.Query.from(u in TestUser, where: like(u.sn, ^query)))
+    assert Enum.count(values) == 1
+    assert hd(values).uid == "jeff.weiss"
+  end
+
 end
