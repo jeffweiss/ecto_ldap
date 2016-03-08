@@ -81,6 +81,10 @@ defmodule Ecto.Ldap.Adapter.Sandbox do
     ldap_response = {:ok, {:eldap_search_result, [List.first(state)], []}}
     {:reply, ldap_response, state}
   end
+  def handle_call({:search, %{base: 'ou=users,dc=example,dc=com', filter: {:and, [and: [or: [equalityMatch: {:AttributeValueAssertion, 'uid', 'jeff.weiss'}, equalityMatch: {:AttributeValueAssertion, 'uid', 'jeff'}]], and: []]}}}, _from, state) do
+    ldap_response = {:ok, {:eldap_search_result, [List.first(state)], []}}
+    {:reply, ldap_response, state}
+  end
   def handle_call({:search, %{base: 'ou=users,dc=example,dc=com'} = options}, _from, state) do
     ldap_response = {:ok, {:eldap_search_result, state, []}}
     {:reply, ldap_response, state}

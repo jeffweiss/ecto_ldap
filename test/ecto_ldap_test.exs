@@ -158,4 +158,10 @@ defmodule EctoLdapTest do
     assert hd(values).uid == "jeff.weiss"
   end
 
+  test "in keyword with a list" do
+    values = TestRepo.all(Ecto.Query.from(u in TestUser, where: u.uid in ["jeff.weiss", "jeff"]))
+    assert Enum.count(values) == 1
+    assert hd(values).uid == "jeff.weiss"
+  end
+
 end
