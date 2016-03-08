@@ -162,6 +162,10 @@ defmodule EctoLdapTest do
     values = TestRepo.all(Ecto.Query.from(u in TestUser, where: u.uid in ["jeff.weiss", "jeff"]))
     assert Enum.count(values) == 1
     assert hd(values).uid == "jeff.weiss"
+    list = ["jeff.weiss", "jeff"]
+    values = TestRepo.all(Ecto.Query.from(u in TestUser, where: u.uid in ^list))
+    assert Enum.count(values) == 1
+    assert hd(values).uid == "jeff.weiss"
   end
 
 end
