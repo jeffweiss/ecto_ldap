@@ -1,0 +1,15 @@
+language: elixir
+elixir:
+  - 1.0.0
+  - 1.1.1
+  - 1.2.0
+notifications:
+  recipients:
+    - travis@jeffweiss.org
+  otp_release:
+    - 18.2
+    - 18.3
+  env:
+    - MIX_ENV=test
+  script:
+    - "mix do deps.get, compile, coveralls.travis"
