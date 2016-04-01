@@ -100,8 +100,8 @@ defmodule Ecto.Ldap.Adapter do
     {:nocache, query_metadata}
   end
 
-  def prepare(:update_all, _query), do: raise Exception, "Update is currently unsupported"
-  def prepare(:delete_all, _query), do: raise Exception, "Delete is currently unsupported"
+  def prepare(:update_all, _query), do: raise "Update is currently unsupported"
+  def prepare(:delete_all, _query), do: raise "Delete is currently unsupported"
 
   def construct_filter(%{wheres: wheres}) when is_list(wheres) do
     filter_term = 

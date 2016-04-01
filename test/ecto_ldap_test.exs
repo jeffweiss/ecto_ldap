@@ -168,4 +168,10 @@ defmodule EctoLdapTest do
     assert hd(values).uid == "jeff.weiss"
   end
 
+  test "delete_all unsupported" do
+    assert_raise RuntimeError, fn ->
+      TestRepo.delete_all(TestUser, dn: "uid=manny,ou=users,dc=example,dc=com")
+    end
+  end
+
 end
