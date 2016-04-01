@@ -1,4 +1,5 @@
 # EctoLdap
+[![Coverage Status](https://coveralls.io/repos/github/jeffweiss/ecto_ldap/badge.svg?branch=master)](https://coveralls.io/github/jeffweiss/ecto_ldap?branch=master)
 
 **Ecto Adapter for LDAP**
 
