@@ -13,6 +13,8 @@ defmodule EctoLdap.Mixfile do
      package: package,
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
+     test_coverage: [tool: ExCoveralls],
+     preferred_cli_env: ["coveralls": :test, "coveralls.detail": :test, "coveralls.html": :test, "coveralls.post": :test],
      deps: deps]
   end
 
@@ -36,6 +38,7 @@ defmodule EctoLdap.Mixfile do
     [
       {:ecto, "~> 1.1"},
       {:timex_ecto, "~> 1.0"},
+      {:excoveralls, "~> 0.5", only: :test},
     ]
   end
 
