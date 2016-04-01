@@ -394,6 +394,11 @@ defmodule Ecto.Ldap.Adapter do
   def load(_, nil), do: {:ok, nil}
   def load(:string, value), do: {:ok, trim_converted(convert_from_erlang(value))}
   def load(:binary, value), do: {:ok, trim_converted(convert_from_erlang(value))}
+  def load(Ecto.DateTime, [value]) do
+    value
+    |> to_string
+    |> Timex.parse("%Y%m%d%H%M%S.000Z", :strftime)
+  end
   def load({:array, :string}, value) do
     {:ok, value |> Enum.map(&convert_from_erlang/1) }
   end

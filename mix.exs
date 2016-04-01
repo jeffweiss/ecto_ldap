@@ -6,7 +6,7 @@ defmodule EctoLdap.Mixfile do
 
   def project do
     [app: :ecto_ldap,
-     version: "0.2.4",
+     version: "0.2.5",
      elixir: "~> 1.2",
      name: "ecto_ldap",
      description: @description,
@@ -35,6 +35,7 @@ defmodule EctoLdap.Mixfile do
   defp deps do
     [
       {:ecto, "~> 1.1"},
+      {:timex_ecto, "~> 1.0"},
     ]
   end
 
