@@ -1,4 +1,5 @@
 # EctoLdap
+[![Build Status](https://travis-ci.org/jeffweiss/ecto_ldap.svg?branch=master)](https://travis-ci.org/jeffweiss/ecto_ldap)
 [![Coverage Status](https://coveralls.io/repos/github/jeffweiss/ecto_ldap/badge.svg?branch=master)](https://coveralls.io/github/jeffweiss/ecto_ldap?branch=master)
 
 **Ecto Adapter for LDAP**
