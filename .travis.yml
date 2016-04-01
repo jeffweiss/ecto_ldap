@@ -6,7 +6,6 @@ notifications:
     - travis@jeffweiss.org
 otp_release:
   - 18.2
-  - 18.3
 env:
   - MIX_ENV=test
 script:
