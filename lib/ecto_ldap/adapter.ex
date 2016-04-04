@@ -134,8 +134,8 @@ defmodule Ecto.Ldap.Adapter do
         {
           :attributes,
           attributes
-            |> Enum.map(&extract_select/1)
-            |> Enum.map(&convert_to_erlang/1)
+          |> Enum.map(&extract_select/1)
+          |> Enum.map(&convert_to_erlang/1)
         }
     end
   end
@@ -327,7 +327,7 @@ defmodule Ecto.Ldap.Adapter do
     for field <- fields, do: Keyword.get(attributes, field)
   end
   def prune_attributes(attributes, all_fields, selected_fields) do
-    for {{{:., [], [{:&, [], [0]}, field]}, [ecto_type: :string], []}, 0} <- selected_fields do
+    for {{{:., [], [{:&, [], [0]}, field]}, [ecto_type: _], []}, 0} <- selected_fields do
       Keyword.get(attributes, field)
     end
   end
