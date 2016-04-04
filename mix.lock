@@ -12,6 +12,6 @@
   "mimerl": {:hex, :mimerl, "1.0.2"},
   "poolboy": {:hex, :poolboy, "1.5.1"},
   "ssl_verify_fun": {:hex, :ssl_verify_fun, "1.1.0"},
-  "timex": {:hex, :timex, "2.1.4"},
+  "timex": {:git, "https://github.com/bitwalker/timex.git", "1dc6d355c12f06b0250466b62ca001dd1dad8de0", []},
   "timex_ecto": {:hex, :timex_ecto, "1.0.4"},
   "tzdata": {:hex, :tzdata, "0.5.7"}}

@@ -390,21 +390,97 @@ defmodule Ecto.Ldap.Adapter do
   end
 
 
+  @doc """
+  Convert a value from its data-store representation to something that Ecto expects.
+  `:id` fields are always returned unchanged.
+
+  ### Examples
+
+    iex> Ecto.Ldap.Adapter.load(:id, "uid=jeff.weiss,ou=users,dc=example,dc=com")
+    {:ok, "uid=jeff.weiss,ou=users,dc=example,dc=com"}
+
+    iex> Ecto.Ldap.Adapter.load(:id, 123456)
+    {:ok, 123456}
+
+    iex> Ecto.Ldap.Adapter.load(:id, nil)
+    {:ok, nil}
+
+
+  Given that LDAP uses ASN.1 GeneralizedTime for its datetime storage format, values
+  where the type is `Ecto.DateTime` will be converted to a string and parsed as ASN.1
+  GeneralizedTime, assuming UTC ( "2016040112[34[56[.789]]]Z" )
+
+  ### Examples
+    iex> Ecto.Ldap.Adapter.load(:datetime, ['20160401123456.789Z'])
+    {:ok, {{2016, 4, 1}, {12, 34, 56, 789000}}}
+
+    iex> Ecto.Ldap.Adapter.load(:datetime, ['20160401123456Z'])
+    {:ok, {{2016, 4, 1}, {12, 34, 56, 0}}}
+
+    iex> Ecto.Ldap.Adapter.load(:datetime, ['201604011234Z'])
+    {:ok, {{2016, 4, 1}, {12, 34, 0, 0}}}
+
+    iex> Ecto.Ldap.Adapter.load(:datetime, ['2016040112Z'])
+    {:ok, {{2016, 4, 1}, {12, 0, 0, 0}}}
+
+    iex> Ecto.Ldap.Adapter.load(Ecto.DateTime, ['20160401123456.789Z'])
+    {:ok, {{2016, 4, 1}, {12, 34, 56, 789000}}}
+
+    iex> Ecto.Ldap.Adapter.load(Ecto.DateTime, ['20160401123456Z'])
+    {:ok, {{2016, 4, 1}, {12, 34, 56, 0}}}
+
+    iex> Ecto.Ldap.Adapter.load(Ecto.DateTime, ['201604011234Z'])
+    {:ok, {{2016, 4, 1}, {12, 34, 0, 0}}}
+
+    iex> Ecto.Ldap.Adapter.load(Ecto.DateTime, ['2016040112Z'])
+    {:ok, {{2016, 4, 1}, {12, 0, 0, 0}}}
+
+  String and binary types will take the first element if the underlying LDAP attribute
+  supports multiple values.
+
+  ### Examples
+
+    iex> Ecto.Ldap.Adapter.load(:string, nil)
+    {:ok, nil}
+
+    iex> Ecto.Ldap.Adapter.load(:binary, nil)
+    {:ok, nil}
+
+    iex> Ecto.Ldap.Adapter.load(:string, ['Home, home on the range', 'where the deer and the antelope play'])
+    {:ok, "Home, home on the range"}
+
+    iex> Ecto.Ldap.Adapter.load(:binary, [[1,2,3,4,5], [6,7,8,9,10]])
+    {:ok, <<1,2,3,4,5>>}
+
+
+  Array values will be each be converted
+
+  ### Examples
+
+    iex> Ecto.Ldap.Adapter.load({:array, :string}, [])
+    {:ok, []}
+
+    iex> Ecto.Ldap.Adapter.load({:array, :string}, ['Home, home on the range', 'where the deer and the antelope play'])
+    {:ok, ["Home, home on the range", "where the deer and the antelope play"]}
+
+  """
   def load(:id, value), do: {:ok, value}
   def load(_, nil), do: {:ok, nil}
   def load(:string, value), do: {:ok, trim_converted(convert_from_erlang(value))}
   def load(:binary, value), do: {:ok, trim_converted(convert_from_erlang(value))}
+  def load(:datetime, value), do: load(Ecto.DateTime, value)
   def load(Ecto.DateTime, [value]) do
     value
     |> to_string
-    |> Timex.parse("%Y%m%d%H%M%S.000Z", :strftime)
+    |> Timex.parse!("{ASN1:GeneralizedTime:Z}")
+    |> Timex.Ecto.DateTime.dump
   end
   def load({:array, :string}, value) do
     {:ok, value |> Enum.map(&convert_from_erlang/1) }
   end
 
-  def trim_converted(list) when is_list(list), do: hd(list)
-  def trim_converted(other), do: other
+  defp trim_converted(list) when is_list(list), do: hd(list)
+  defp trim_converted(other), do: other
 
   def dump(_, nil), do: {:ok, nil}
   def dump(:string, value), do: {:ok, convert_to_erlang(value)}

@@ -3,7 +3,7 @@ defmodule EctoLdapTest do
   alias Ecto.Ldap.TestUser
   require Ecto.Query
   use ExUnit.Case
-  doctest EctoLdap
+  doctest Ecto.Ldap.Adapter
 
   test "retrieve model by id/dn" do
     dn = "uid=jeff.weiss,ou=users,dc=example,dc=com"

@@ -1,2 +1,0 @@
-defmodule EctoLdap do
-end
