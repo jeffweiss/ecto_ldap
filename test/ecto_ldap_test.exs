@@ -168,6 +168,17 @@ defmodule EctoLdapTest do
     assert hd(values).uid == "jeff.weiss"
   end
 
+  test "multiple criteria with `and`" do
+    values = TestRepo.all(Ecto.Query.from(u in TestUser, where: u.st == "OR" and "elixir" in u.skills))
+    assert Enum.count(values) == 1
+    assert hd(values).uid == "jeff.weiss"
+  end
+
+  test "multiple criteria with `or`" do
+    values = TestRepo.all(Ecto.Query.from(u in TestUser, where: u.st == "OR" or not is_nil(u.skills)))
+    assert Enum.count(values) == 2
+  end
+
   test "delete_all unsupported" do
     assert_raise RuntimeError, fn ->
       TestRepo.delete_all(TestUser, dn: "uid=manny,ou=users,dc=example,dc=com")

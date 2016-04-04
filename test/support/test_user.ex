@@ -10,6 +10,7 @@ defmodule Ecto.Ldap.TestUser do
     field :mobile, :string
     field :skills, {:array, :string}
     field :sn, :string
+    field :st, :string
     field :uid, :string
     field :jpegPhoto, :binary
   end

@@ -369,7 +369,6 @@ defmodule Ecto.Ldap.Adapter do
       :ok ->
         {:ok, fields}
       {:error, reason} ->
-        IO.inspect reason
         {:invalid, [reason]}
     end
   end
