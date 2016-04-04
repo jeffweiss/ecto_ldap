@@ -89,10 +89,6 @@ defmodule Ecto.Ldap.Adapter.Sandbox do
     ldap_response = {:ok, {:eldap_search_result, state, []}}
     {:reply, ldap_response, state}
   end
-  def handle_call({:search, _search_options}, _from, state) do
-    ldap_response = {:ok, {:eldap_search_result, [], []}}
-    {:reply, ldap_response, state}
-  end
   def handle_call({:update, 'uid=manny,ou=users,dc=example,dc=com', modify_operations}, _from, state) do
     {:eldap_entry, dn, attributes} = List.last(state)
 
