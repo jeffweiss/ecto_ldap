@@ -22,7 +22,7 @@ defmodule EctoLdap.Mixfile do
   #
   # Type "mix help compile.app" for more information
   def application do
-    [applications: [:logger, :ecto, :timex_ecto]]
+    [applications: [:logger, :ecto, :timex, :timex_ecto]]
   end
 
   # Dependencies can be Hex packages:
@@ -40,6 +40,8 @@ defmodule EctoLdap.Mixfile do
       {:timex, github: "bitwalker/timex", override: true},
       {:timex_ecto, "~> 1.0"},
       {:excoveralls, "~> 0.5", only: :test},
+      {:ex_doc, "~> 0.11.4", only: :docs},
+      {:markdown, github: "devinus/markdown", only: :docs},
     ]
   end
 
