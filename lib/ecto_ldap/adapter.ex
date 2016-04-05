@@ -445,12 +445,14 @@ defmodule Ecto.Ldap.Adapter do
     iex> Ecto.Ldap.Adapter.load(:binary, nil)
     {:ok, nil}
 
+    iex> Ecto.Ldap.Adapter.load(:string, [83, 195, 182, 114, 101, 110])
+    {:ok, "Sören"}
+
     iex> Ecto.Ldap.Adapter.load(:string, ['Home, home on the range', 'where the deer and the antelope play'])
     {:ok, "Home, home on the range"}
 
     iex> Ecto.Ldap.Adapter.load(:binary, [[1,2,3,4,5], [6,7,8,9,10]])
     {:ok, <<1,2,3,4,5>>}
-
 
   Array values will be each be converted
 
@@ -481,18 +483,70 @@ defmodule Ecto.Ldap.Adapter do
   defp trim_converted(list) when is_list(list), do: hd(list)
   defp trim_converted(other), do: other
 
+  @doc """
+  Convert from Ecto datatype to datatype that can be handled via `eldap`.
+
+  `nil`s are simply passed straight through regardless of Ecto datatype.
+
+  ### Examples
+
+    iex> Ecto.Ldap.Adapter.dump(:string, nil)
+    {:ok, nil}
+
+    iex> Ecto.Ldap.Adapter.dump(:datetime, nil)
+    {:ok, nil}
+
+  Strings are converted to Erlang character lists.
+
+  ### Examples
+
+    iex> Ecto.Ldap.Adapter.dump(:string, "bob")
+    {:ok, 'bob'}
+
+    iex> Ecto.Ldap.Adapter.dump(:string, "Sören")
+    {:ok, [83, 195, 182, 114, 101, 110]}
+
+    iex> Ecto.Ldap.Adapter.dump(:string, "José")
+    {:ok, [74, 111, 115, 195, 169]}
+
+    iex> Ecto.Ldap.Adapter.dump({:array, :string}, ["list", "of", "skills"])
+    {:ok, ['list', 'of', 'skills']}
+
+    iex> Ecto.Ldap.Adapter.dump(:integer, 3)
+    {:ok, 3}
+
+    iex> Ecto.Ldap.Adapter.dump(:string, :atom)
+    {:ok, 'atom'}
+
+  Ecto.DateTimes are converted to a stringified ASN.1 GeneralizedTime format in UTC. Currently,
+  fractional seconds are truncated.
+
+  ### Examples
+
+    iex> Ecto.Ldap.Adapter.dump(Ecto.DateTime, {{2016, 4, 1}, {12, 34, 56, 789000}})
+    {:ok, '20160401123456Z'}
+
+    iex> Ecto.Ldap.Adapter.dump(Ecto.DateTime, {{2016, 4, 1}, {12, 34, 56, 0}})
+    {:ok, '20160401123456Z'}
+
+  """
   def dump(_, nil), do: {:ok, nil}
   def dump(:string, value), do: {:ok, convert_to_erlang(value)}
   def dump({:array, :string}, value) when is_list(value), do: {:ok, convert_to_erlang(value)}
+  def dump(Ecto.DateTime, value) when is_tuple(value) do
+    with {:ok, v} <- Timex.Ecto.DateTime.load(value), {:ok, d} <- Timex.format(v, "{ASN1:GeneralizedTime:Z}") do
+      {:ok, convert_to_erlang(d)}
+    end
+  end
   def dump(_, value), do: {:ok, convert_to_erlang(value)}
 
-  def convert_from_erlang(list=[head|_]) when is_list(head), do: Enum.map(list, &convert_from_erlang/1)
-  def convert_from_erlang(string) when is_list(string), do: :binary.list_to_bin(string)
-  def convert_from_erlang(other), do: other
+  defp convert_from_erlang(list=[head|_]) when is_list(head), do: Enum.map(list, &convert_from_erlang/1)
+  defp convert_from_erlang(string) when is_list(string), do: :binary.list_to_bin(string)
+  defp convert_from_erlang(other), do: other
 
-  def convert_to_erlang(list) when is_list(list), do: Enum.map(list, &convert_to_erlang/1)
-  def convert_to_erlang(string) when is_binary(string), do: :binary.bin_to_list(string)
-  def convert_to_erlang(atom) when is_atom(atom), do: atom |> Atom.to_string |> convert_to_erlang
-  def convert_to_erlang(num) when is_number(num), do: num
+  defp convert_to_erlang(list) when is_list(list), do: Enum.map(list, &convert_to_erlang/1)
+  defp convert_to_erlang(string) when is_binary(string), do: :binary.bin_to_list(string)
+  defp convert_to_erlang(atom) when is_atom(atom), do: atom |> Atom.to_string |> convert_to_erlang
+  defp convert_to_erlang(num) when is_number(num), do: num
 
 end
