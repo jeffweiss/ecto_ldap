@@ -1,5 +1,25 @@
 defmodule Ecto.Ldap.Adapter.Sandbox do
   use GenServer
+  @moduledoc """
+  Fake LDAP server which returns realistic results for specific LDAP calls.
+
+  Useful when using `ecto_ldap` in testing.
+
+
+      use Mix.Config
+
+      config :my_app, MyApp.Repo,
+        ldap_api: Ecto.Ldap.Adapter.Sandbox,
+        adapter: Ecto.Ldap.Adapter,
+        hostname: "ldap.example.com",
+        base: "dc=example,dc=com",
+        port: 636,
+        ssl: true,
+        user_dn: "uid=sample_user,ou=users,dc=example,dc=com",
+        password: "password",
+        pool_size: 1
+
+  """
 
   @jeffweiss {:eldap_entry, 'uid=jeff.weiss,ou=users,dc=example,dc=com', [
       {'cn', ['Jeff Weiss']},
@@ -41,13 +61,16 @@ defmodule Ecto.Ldap.Adapter.Sandbox do
       {'uidNumber', ['5002']},
     ]}
 
+  @doc false
   def init(_) do
     {:ok, [@jeffweiss, @manny]}
   end
 
+  @doc false
   def search(pid, search_options) when is_list(search_options) do
     GenServer.call(pid, {:search, Map.new(search_options)})
   end
+  @doc false
   def modify(pid, dn, modify_operations) do
     GenServer.call(pid, {:update, dn, modify_operations})
   end
@@ -122,6 +145,7 @@ defmodule Ecto.Ldap.Adapter.Sandbox do
   end
 
 
+  @doc false
   def open(_hosts, _options) do
     __MODULE__
     |> Process.whereis
@@ -131,9 +155,11 @@ defmodule Ecto.Ldap.Adapter.Sandbox do
     end
   end
 
+  @doc false
   def simple_bind(_pid, 'uid=sample_user,ou=users,dc=example,dc=com', 'password'), do: :ok
   def simple_bind(_, _, _), do: {:error, :invalidCredentials}
 
+  @doc false
   def close(_pid) do
     :ok
   end

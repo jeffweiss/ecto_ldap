@@ -48,7 +48,7 @@ defmodule EctoLdap.Mixfile do
       {:timex_ecto, "~> 1.0"},
       {:excoveralls, "~> 0.5", only: :test},
       {:ex_doc, "~> 0.11.4", only: :docs},
-      {:markdown, github: "devinus/markdown", only: :docs},
+      {:earmark, "~> 0.2"},
     ]
   end
 

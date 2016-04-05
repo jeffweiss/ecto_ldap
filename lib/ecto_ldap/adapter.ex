@@ -3,15 +3,83 @@ defmodule Ecto.Ldap.Adapter do
 
   @behaviour Ecto.Adapter
 
+  @moduledoc """
+  Allows talking to an LDAP directory as an Ecto data store.
+
+  ## Sample Configuration
+
+      use Mix.Config
+
+      config :my_app, MyApp.Repo,
+        adapter: Ecto.Ldap.Adapter,
+        hostname: "ldap.example.com",
+        base: "dc=example,dc=com",
+        port: 636,
+        ssl: true,
+        user_dn: "uid=sample_user,ou=users,dc=example,dc=com",
+        password: "password",
+        pool_size: 1
+
+  Currently `ecto_ldap` does not support a `pool_size` larger than `1`. If this
+  is a bottleneck for you, please [open an issue](https://github.com/jeffweiss/ecto_ldap/issues/new).
+
+  ## Example schema
+
+
+      defmodule TestUser do
+        use Ecto.Schema
+        import Ecto.Changeset
+
+        @primary_key {:dn, :string, autogenerate: false}
+        schema "users" do
+          field :objectClass, {:array, :string}
+          field :loginShell, :string
+          field :mail, :string
+          field :mobile, :string
+          field :skills, {:array, :string}
+          field :sn, :string
+          field :st, :string
+          field :startDate, Ecto.DateTime
+          field :uid, :string
+          field :jpegPhoto, :binary
+        end
+
+        def changeset(model, params \\ :empty) do
+          model
+          |> cast(params, ~w(dn), ~w(objectClass loginShell mail mobile skills sn uid))
+          |> unique_constraint(:dn)
+        end
+
+      end
+
+  ## Example Usage
+
+      iex> require Ecto.Query
+      iex> Ecto.Query.from(u in TestUser, select: u.uid) |> TestRepo.all
+      ["jeff.weiss", "manny"]
+
+      iex> TestRepo.all(TestUser, uid: "jeff.weiss") |> Enum.count
+      1
+
+      iex> TestRepo.get(TestUser, "uid=jeff.weiss,ou=users,dc=example,dc=com").mail
+      "jeff.weiss@example.com"
+
+      iex> TestRepo.get_by(TestUser, uid: "jeff.weiss").loginShell
+      "/bin/zsh"
+
+  """
+
   ####
   #
   # GenServer API
   #
   ####
+  @doc false
   def start_link(_repo, opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
+  @doc false
   def init(opts) do
     {:ok, opts}
   end
@@ -21,14 +89,17 @@ defmodule Ecto.Ldap.Adapter do
   # Client API
   #
   ####
+  @doc false
   def search(search_options) do
     GenServer.call(__MODULE__, {:search, search_options})
   end
 
+  @doc false
   def update(dn, modify_operations) do
     GenServer.call(__MODULE__, {:update, dn, modify_operations})
   end
 
+  @doc false
   def base do
     GenServer.call(__MODULE__, :base)
   end
@@ -60,11 +131,11 @@ defmodule Ecto.Ldap.Adapter do
     {:reply, base, state}
   end
 
-  def ldap_api(state) do
+  defp ldap_api(state) do
     Keyword.get(state, :ldap_api, :eldap)
   end
 
-  def ldap_connect(state) do
+  defp ldap_connect(state) do
     user_dn   = Keyword.get(state, :user_dn)  |> to_char_list
     password  = Keyword.get(state, :password) |> to_char_list
     hostname  = Keyword.get(state, :hostname) |> to_char_list
@@ -103,6 +174,7 @@ defmodule Ecto.Ldap.Adapter do
   def prepare(:update_all, _query), do: raise "Update is currently unsupported"
   def prepare(:delete_all, _query), do: raise "Delete is currently unsupported"
 
+  @doc false
   def construct_filter(%{wheres: wheres}) when is_list(wheres) do
     filter_term = 
       wheres
@@ -110,6 +182,7 @@ defmodule Ecto.Ldap.Adapter do
     {:filter, filter_term}
   end
 
+  @doc false
   def construct_filter(wheres, params) when is_list(wheres) do
     filter_term =
       wheres
@@ -118,13 +191,17 @@ defmodule Ecto.Ldap.Adapter do
     {:filter, filter_term}
   end
 
+  @doc false
   def construct_base(%{from: {from, _}}) do
     {:base, to_char_list("ou=" <> from <> "," <> to_string(base)) }
   end
+  @doc false
   def constuct_base(_), do: {:base, base}
 
+  @doc false
   def construct_scope(_), do: {:scope, :eldap.wholeSubtree}
 
+  @doc false
   def construct_attributes(%{select: select, sources: sources}) do
     case select.fields do
       [{:&, [], [0]}] -> 
@@ -140,66 +217,66 @@ defmodule Ecto.Ldap.Adapter do
     end
   end
 
-  def extract_select({{:., _, [{:&, _, _}, select]}, _, _}), do: select
+  defp extract_select({{:., _, [{:&, _, _}, select]}, _, _}), do: select
 
-  def translate_ecto_lisp_to_eldap_filter({:or, _, list_of_subexpressions}, params) do
+  defp translate_ecto_lisp_to_eldap_filter({:or, _, list_of_subexpressions}, params) do
     list_of_subexpressions
     |> Enum.map(&(translate_ecto_lisp_to_eldap_filter(&1, params)))
     |> :eldap.or
   end
-  def translate_ecto_lisp_to_eldap_filter({:and, _, list_of_subexpressions}, params) do
+  defp translate_ecto_lisp_to_eldap_filter({:and, _, list_of_subexpressions}, params) do
     list_of_subexpressions
     |> Enum.map(&(translate_ecto_lisp_to_eldap_filter(&1, params)))
     |> :eldap.and
   end
-  def translate_ecto_lisp_to_eldap_filter({:not, _, [subexpression]}, params) do
+  defp translate_ecto_lisp_to_eldap_filter({:not, _, [subexpression]}, params) do
     :eldap.not(translate_ecto_lisp_to_eldap_filter(subexpression, params))
   end
   # {:==, [], [{{:., [], [{:&, [], [0]}, :sn]}, [ecto_type: :string], []}, {:^, [], [0]}]}, ['Weiss', 'jeff.weiss@puppetlabs.com']
-  def translate_ecto_lisp_to_eldap_filter({op, [], [value1, {:^, [], [idx]}]}, params) do
+  defp translate_ecto_lisp_to_eldap_filter({op, [], [value1, {:^, [], [idx]}]}, params) do
     translate_ecto_lisp_to_eldap_filter({op, [], [value1, Enum.at(params, idx)]}, params)
   end
-  def translate_ecto_lisp_to_eldap_filter({op, [], [value1, {:^, [], [idx,len]}]}, params) do
+  defp translate_ecto_lisp_to_eldap_filter({op, [], [value1, {:^, [], [idx,len]}]}, params) do
     translate_ecto_lisp_to_eldap_filter({op, [], [value1, Enum.slice(params, idx, len)]}, params)
   end
 
-  def translate_ecto_lisp_to_eldap_filter({:ilike, _, [value1, "%" <> value2]}, _) do
+  defp translate_ecto_lisp_to_eldap_filter({:ilike, _, [value1, "%" <> value2]}, _) do
     like_with_leading_wildcard(value1, value2)
   end
-  def translate_ecto_lisp_to_eldap_filter({:ilike, _, [value1, [37|value2]]}, _) do
+  defp translate_ecto_lisp_to_eldap_filter({:ilike, _, [value1, [37|value2]]}, _) do
     like_with_leading_wildcard(value1, convert_from_erlang(value2))
   end
-  def translate_ecto_lisp_to_eldap_filter({:ilike, _, [value1, value2]}, _) when is_list(value2) do
+  defp translate_ecto_lisp_to_eldap_filter({:ilike, _, [value1, value2]}, _) when is_list(value2) do
     like_without_leading_wildcard(value1, convert_from_erlang(value2))
   end
-  def translate_ecto_lisp_to_eldap_filter({:ilike, _, [value1, value2]}, _) when is_binary(value2) do
+  defp translate_ecto_lisp_to_eldap_filter({:ilike, _, [value1, value2]}, _) when is_binary(value2) do
     like_without_leading_wildcard(value1, value2)
   end
-  def translate_ecto_lisp_to_eldap_filter({:like, a, b}, params) do
+  defp translate_ecto_lisp_to_eldap_filter({:like, a, b}, params) do
     translate_ecto_lisp_to_eldap_filter({:ilike, a, b}, params)
   end
-  def translate_ecto_lisp_to_eldap_filter({:==, _, [value1, value2]}, _) do
+  defp translate_ecto_lisp_to_eldap_filter({:==, _, [value1, value2]}, _) do
     :eldap.equalityMatch(translate_value(value1), translate_value(value2))
   end
-  def translate_ecto_lisp_to_eldap_filter({:!=, _, [value1, value2]}, _) do
+  defp translate_ecto_lisp_to_eldap_filter({:!=, _, [value1, value2]}, _) do
     :eldap.not(:eldap.equalityMatch(translate_value(value1), translate_value(value2)))
   end
-  def translate_ecto_lisp_to_eldap_filter({:>=, _, [value1, value2]}, _) do
+  defp translate_ecto_lisp_to_eldap_filter({:>=, _, [value1, value2]}, _) do
     :eldap.greaterOrEqual(translate_value(value1), translate_value(value2))
   end
-  def translate_ecto_lisp_to_eldap_filter({:<=, _, [value1, value2]}, _) do
+  defp translate_ecto_lisp_to_eldap_filter({:<=, _, [value1, value2]}, _) do
     :eldap.lessOrEqual(translate_value(value1), translate_value(value2))
   end
-  def translate_ecto_lisp_to_eldap_filter({:in, _, [value1, value2]}, _) when is_list(value2) do
+  defp translate_ecto_lisp_to_eldap_filter({:in, _, [value1, value2]}, _) when is_list(value2) do
     for value <- value2 do
       :eldap.equalityMatch(translate_value(value1), translate_value(value))
     end
     |> :eldap.or
   end
-  def translate_ecto_lisp_to_eldap_filter({:in, _, [value1, value2]}, _) do
+  defp translate_ecto_lisp_to_eldap_filter({:in, _, [value1, value2]}, _) do
     :eldap.equalityMatch(translate_value(value2), translate_value(value1))
   end
-  def translate_ecto_lisp_to_eldap_filter({:is_nil, _, [value]}, _) do
+  defp translate_ecto_lisp_to_eldap_filter({:is_nil, _, [value]}, _) do
     :eldap.not(:eldap.present(translate_value(value)))
   end
 
@@ -216,16 +293,16 @@ defmodule Ecto.Ldap.Adapter do
     end
   end
 
-  def translate_value({{:., [], [{:&, [], [0]}, attribute]}, _ecto_type, []}) when is_atom(attribute) do
+  defp translate_value({{:., [], [{:&, [], [0]}, attribute]}, _ecto_type, []}) when is_atom(attribute) do
     translate_value(attribute)
   end
-  def translate_value(%Ecto.Query.Tagged{value: value}), do: value
-  def translate_value(atom) when is_atom(atom) do
+  defp translate_value(%Ecto.Query.Tagged{value: value}), do: value
+  defp translate_value(atom) when is_atom(atom) do
     atom
     |> to_string
     |> to_char_list
   end
-  def translate_value(other), do: convert_to_erlang(other)
+  defp translate_value(other), do: convert_to_erlang(other)
 
   def execute(_repo, query_metadata, prepared, params, preprocess, options) do
     {:filter, filter} = construct_filter(Keyword.get(prepared, :filter), params)
@@ -255,28 +332,28 @@ defmodule Ecto.Ldap.Adapter do
     {count, result_set}
   end
 
-  def translate_options_to_filter([]), do: []
-  def translate_options_to_filter(list) when is_list(list) do
+  defp translate_options_to_filter([]), do: []
+  defp translate_options_to_filter(list) when is_list(list) do
     for {attr, value} <- list do
       translate_ecto_lisp_to_eldap_filter({:==, [], [attr, convert_to_erlang(value)]}, [])
     end
   end
 
-  def merge_search_options({filter, []}, full_search_terms) do
+  defp merge_search_options({filter, []}, full_search_terms) do
     full_search_terms
     |> Keyword.put(:filter, filter)
   end
-  def merge_search_options({filter, [base: dn]}, full_search_terms) do
+  defp merge_search_options({filter, [base: dn]}, full_search_terms) do
     full_search_terms
     |> Keyword.put(:filter, filter)
     |> Keyword.put(:base, dn)
     |> Keyword.put(:scope, :eldap.baseObject)
   end
-  def merge_search_options(_, _) do
+  defp merge_search_options(_, _) do
     raise "Unable to search across multiple base DNs"
   end
 
-  def replace_dn_search_with_objectclass_present(search_options) when is_list(search_options)do
+  defp replace_dn_search_with_objectclass_present(search_options) when is_list(search_options)do
     {filter, dns} =
       search_options
       |> Keyword.get(:filter)
@@ -284,27 +361,27 @@ defmodule Ecto.Ldap.Adapter do
     {filter, dns |> List.flatten |> Enum.uniq}
   end
 
-  def replace_dn_filters([]), do: {[], []}
-  def replace_dn_filters([head|tail]) do
+  defp replace_dn_filters([]), do: {[], []}
+  defp replace_dn_filters([head|tail]) do
     {h, hdns} = replace_dn_filters(head)
     {t, tdns} = replace_dn_filters(tail)
     {[h|t], [hdns|tdns]}
   end
-  def replace_dn_filters({:equalityMatch, {:AttributeValueAssertion, 'dn', dn}}) do
+  defp replace_dn_filters({:equalityMatch, {:AttributeValueAssertion, 'dn', dn}}) do
     {:eldap.present('objectClass'), {:base, dn}}
   end
-  def replace_dn_filters({conjunction, list}) when is_list(list) do
+  defp replace_dn_filters({conjunction, list}) when is_list(list) do
     {l, dns} = replace_dn_filters(list)
     {{conjunction, l}, dns}
   end
-  def replace_dn_filters(other), do: {other, []}
+  defp replace_dn_filters(other), do: {other, []}
 
-  def ordered_fields(sources) do
+  defp ordered_fields(sources) do
     {_, model} = elem(sources, 0)
     model.__schema__(:fields)
   end
 
-  def count_fields(fields, sources) do
+  defp count_fields(fields, sources) do
     fields
     |> Enum.map(fn
       {:&, _, [idx]} = field ->
@@ -315,7 +392,7 @@ defmodule Ecto.Ldap.Adapter do
     end)
   end
 
-  def process_entry({:eldap_entry, dn, attributes}) when is_list(attributes) do
+  defp process_entry({:eldap_entry, dn, attributes}) when is_list(attributes) do
     List.flatten(
       [dn: dn], 
       Enum.map(attributes, fn {key, value} ->
@@ -323,16 +400,16 @@ defmodule Ecto.Ldap.Adapter do
       end))
   end
 
-  def prune_attributes(attributes, fields, [{{:&, [], [0]}, _}]) do
+  defp prune_attributes(attributes, fields, [{{:&, [], [0]}, _}]) do
     for field <- fields, do: Keyword.get(attributes, field)
   end
-  def prune_attributes(attributes, all_fields, selected_fields) do
+  defp prune_attributes(attributes, all_fields, selected_fields) do
     for {{{:., [], [{:&, [], [0]}, field]}, [ecto_type: _], []}, 0} <- selected_fields do
       Keyword.get(attributes, field)
     end
   end
 
-  def generate_models(row, preprocess, fields) do
+  defp generate_models(row, preprocess, fields) do
     Enum.map_reduce(fields, row, fn
       {field, 0}, [h|t] ->
         {preprocess.(field, h, nil), t}
@@ -344,14 +421,12 @@ defmodule Ecto.Ldap.Adapter do
     end) |> elem(0)
   end
 
-  def split_and_not_nil(rest, 0, true, _acc), do: {nil, rest}
-  def split_and_not_nil(rest, 0, false, acc), do: {:lists.reverse(acc), rest}
-
-  def split_and_not_nil([nil|t], count, all_nil?, acc) do
+  defp split_and_not_nil(rest, 0, true, _acc), do: {nil, rest}
+  defp split_and_not_nil(rest, 0, false, acc), do: {:lists.reverse(acc), rest}
+  defp split_and_not_nil([nil|t], count, all_nil?, acc) do
     split_and_not_nil(t, count - 1, all_nil?, [nil|acc])
   end
-
-  def split_and_not_nil([h|t], count, _all_nil?, acc) do
+  defp split_and_not_nil([h|t], count, _all_nil?, acc) do
     split_and_not_nil(t, count - 1, false, [h|acc])
   end
 
@@ -373,18 +448,16 @@ defmodule Ecto.Ldap.Adapter do
     end
   end
 
-  def generate_modify_operation(attribute, nil, _) do
+  defp generate_modify_operation(attribute, nil, _) do
     :eldap.mod_replace(convert_to_erlang(attribute), [])
   end
-  def generate_modify_operation(attribute, [], {:array, _}) do
+  defp generate_modify_operation(attribute, [], {:array, _}) do
     :eldap.mod_replace(convert_to_erlang(attribute), [])
   end
-
-  def generate_modify_operation(attribute, value, {:array, _}) do
+  defp generate_modify_operation(attribute, value, {:array, _}) do
     :eldap.mod_replace(convert_to_erlang(attribute), value)
   end
-
-  def generate_modify_operation(attribute, value, _) do
+  defp generate_modify_operation(attribute, value, _) do
     :eldap.mod_replace(convert_to_erlang(attribute), [value])
   end
 
@@ -395,74 +468,75 @@ defmodule Ecto.Ldap.Adapter do
 
   ### Examples
 
-    iex> Ecto.Ldap.Adapter.load(:id, "uid=jeff.weiss,ou=users,dc=example,dc=com")
-    {:ok, "uid=jeff.weiss,ou=users,dc=example,dc=com"}
+      iex> Ecto.Ldap.Adapter.load(:id, "uid=jeff.weiss,ou=users,dc=example,dc=com")
+      {:ok, "uid=jeff.weiss,ou=users,dc=example,dc=com"}
 
-    iex> Ecto.Ldap.Adapter.load(:id, 123456)
-    {:ok, 123456}
+      iex> Ecto.Ldap.Adapter.load(:id, 123456)
+      {:ok, 123456}
 
-    iex> Ecto.Ldap.Adapter.load(:id, nil)
-    {:ok, nil}
+      iex> Ecto.Ldap.Adapter.load(:id, nil)
+      {:ok, nil}
 
 
   Given that LDAP uses ASN.1 GeneralizedTime for its datetime storage format, values
   where the type is `Ecto.DateTime` will be converted to a string and parsed as ASN.1
-  GeneralizedTime, assuming UTC ( "2016040112[34[56[.789]]]Z" )
+  GeneralizedTime, assuming UTC ( `"2016040112[34[56[.789]]]Z"` )
 
   ### Examples
-    iex> Ecto.Ldap.Adapter.load(:datetime, ['20160401123456.789Z'])
-    {:ok, {{2016, 4, 1}, {12, 34, 56, 789000}}}
 
-    iex> Ecto.Ldap.Adapter.load(:datetime, ['20160401123456Z'])
-    {:ok, {{2016, 4, 1}, {12, 34, 56, 0}}}
+      iex> Ecto.Ldap.Adapter.load(:datetime, ['20160401123456.789Z'])
+      {:ok, {{2016, 4, 1}, {12, 34, 56, 789000}}}
 
-    iex> Ecto.Ldap.Adapter.load(:datetime, ['201604011234Z'])
-    {:ok, {{2016, 4, 1}, {12, 34, 0, 0}}}
+      iex> Ecto.Ldap.Adapter.load(:datetime, ['20160401123456Z'])
+      {:ok, {{2016, 4, 1}, {12, 34, 56, 0}}}
 
-    iex> Ecto.Ldap.Adapter.load(:datetime, ['2016040112Z'])
-    {:ok, {{2016, 4, 1}, {12, 0, 0, 0}}}
+      iex> Ecto.Ldap.Adapter.load(:datetime, ['201604011234Z'])
+      {:ok, {{2016, 4, 1}, {12, 34, 0, 0}}}
 
-    iex> Ecto.Ldap.Adapter.load(Ecto.DateTime, ['20160401123456.789Z'])
-    {:ok, {{2016, 4, 1}, {12, 34, 56, 789000}}}
+      iex> Ecto.Ldap.Adapter.load(:datetime, ['2016040112Z'])
+      {:ok, {{2016, 4, 1}, {12, 0, 0, 0}}}
 
-    iex> Ecto.Ldap.Adapter.load(Ecto.DateTime, ['20160401123456Z'])
-    {:ok, {{2016, 4, 1}, {12, 34, 56, 0}}}
+      iex> Ecto.Ldap.Adapter.load(Ecto.DateTime, ['20160401123456.789Z'])
+      {:ok, {{2016, 4, 1}, {12, 34, 56, 789000}}}
 
-    iex> Ecto.Ldap.Adapter.load(Ecto.DateTime, ['201604011234Z'])
-    {:ok, {{2016, 4, 1}, {12, 34, 0, 0}}}
+      iex> Ecto.Ldap.Adapter.load(Ecto.DateTime, ['20160401123456Z'])
+      {:ok, {{2016, 4, 1}, {12, 34, 56, 0}}}
 
-    iex> Ecto.Ldap.Adapter.load(Ecto.DateTime, ['2016040112Z'])
-    {:ok, {{2016, 4, 1}, {12, 0, 0, 0}}}
+      iex> Ecto.Ldap.Adapter.load(Ecto.DateTime, ['201604011234Z'])
+      {:ok, {{2016, 4, 1}, {12, 34, 0, 0}}}
+
+      iex> Ecto.Ldap.Adapter.load(Ecto.DateTime, ['2016040112Z'])
+      {:ok, {{2016, 4, 1}, {12, 0, 0, 0}}}
 
   String and binary types will take the first element if the underlying LDAP attribute
   supports multiple values.
 
   ### Examples
 
-    iex> Ecto.Ldap.Adapter.load(:string, nil)
-    {:ok, nil}
+      iex> Ecto.Ldap.Adapter.load(:string, nil)
+      {:ok, nil}
 
-    iex> Ecto.Ldap.Adapter.load(:binary, nil)
-    {:ok, nil}
+      iex> Ecto.Ldap.Adapter.load(:binary, nil)
+      {:ok, nil}
 
-    iex> Ecto.Ldap.Adapter.load(:string, [83, 195, 182, 114, 101, 110])
-    {:ok, "Sören"}
+      iex> Ecto.Ldap.Adapter.load(:string, [83, 195, 182, 114, 101, 110])
+      {:ok, "Sören"}
 
-    iex> Ecto.Ldap.Adapter.load(:string, ['Home, home on the range', 'where the deer and the antelope play'])
-    {:ok, "Home, home on the range"}
+      iex> Ecto.Ldap.Adapter.load(:string, ['Home, home on the range', 'where the deer and the antelope play'])
+      {:ok, "Home, home on the range"}
 
-    iex> Ecto.Ldap.Adapter.load(:binary, [[1,2,3,4,5], [6,7,8,9,10]])
-    {:ok, <<1,2,3,4,5>>}
+      iex> Ecto.Ldap.Adapter.load(:binary, [[1,2,3,4,5], [6,7,8,9,10]])
+      {:ok, <<1,2,3,4,5>>}
 
   Array values will be each be converted
 
   ### Examples
 
-    iex> Ecto.Ldap.Adapter.load({:array, :string}, [])
-    {:ok, []}
+      iex> Ecto.Ldap.Adapter.load({:array, :string}, [])
+      {:ok, []}
 
-    iex> Ecto.Ldap.Adapter.load({:array, :string}, ['Home, home on the range', 'where the deer and the antelope play'])
-    {:ok, ["Home, home on the range", "where the deer and the antelope play"]}
+      iex> Ecto.Ldap.Adapter.load({:array, :string}, ['Home, home on the range', 'where the deer and the antelope play'])
+      {:ok, ["Home, home on the range", "where the deer and the antelope play"]}
 
   """
   def load(:id, value), do: {:ok, value}
@@ -490,44 +564,44 @@ defmodule Ecto.Ldap.Adapter do
 
   ### Examples
 
-    iex> Ecto.Ldap.Adapter.dump(:string, nil)
-    {:ok, nil}
+      iex> Ecto.Ldap.Adapter.dump(:string, nil)
+      {:ok, nil}
 
-    iex> Ecto.Ldap.Adapter.dump(:datetime, nil)
-    {:ok, nil}
+      iex> Ecto.Ldap.Adapter.dump(:datetime, nil)
+      {:ok, nil}
 
   Strings are converted to Erlang character lists.
 
   ### Examples
 
-    iex> Ecto.Ldap.Adapter.dump(:string, "bob")
-    {:ok, 'bob'}
+      iex> Ecto.Ldap.Adapter.dump(:string, "bob")
+      {:ok, 'bob'}
 
-    iex> Ecto.Ldap.Adapter.dump(:string, "Sören")
-    {:ok, [83, 195, 182, 114, 101, 110]}
+      iex> Ecto.Ldap.Adapter.dump(:string, "Sören")
+      {:ok, [83, 195, 182, 114, 101, 110]}
 
-    iex> Ecto.Ldap.Adapter.dump(:string, "José")
-    {:ok, [74, 111, 115, 195, 169]}
+      iex> Ecto.Ldap.Adapter.dump(:string, "José")
+      {:ok, [74, 111, 115, 195, 169]}
 
-    iex> Ecto.Ldap.Adapter.dump({:array, :string}, ["list", "of", "skills"])
-    {:ok, ['list', 'of', 'skills']}
+      iex> Ecto.Ldap.Adapter.dump({:array, :string}, ["list", "of", "skills"])
+      {:ok, ['list', 'of', 'skills']}
 
-    iex> Ecto.Ldap.Adapter.dump(:integer, 3)
-    {:ok, 3}
+      iex> Ecto.Ldap.Adapter.dump(:integer, 3)
+      {:ok, 3}
 
-    iex> Ecto.Ldap.Adapter.dump(:string, :atom)
-    {:ok, 'atom'}
+      iex> Ecto.Ldap.Adapter.dump(:string, :atom)
+      {:ok, 'atom'}
 
   Ecto.DateTimes are converted to a stringified ASN.1 GeneralizedTime format in UTC. Currently,
   fractional seconds are truncated.
 
   ### Examples
 
-    iex> Ecto.Ldap.Adapter.dump(Ecto.DateTime, {{2016, 4, 1}, {12, 34, 56, 789000}})
-    {:ok, '20160401123456Z'}
+      iex> Ecto.Ldap.Adapter.dump(Ecto.DateTime, {{2016, 4, 1}, {12, 34, 56, 789000}})
+      {:ok, '20160401123456Z'}
 
-    iex> Ecto.Ldap.Adapter.dump(Ecto.DateTime, {{2016, 4, 1}, {12, 34, 56, 0}})
-    {:ok, '20160401123456Z'}
+      iex> Ecto.Ldap.Adapter.dump(Ecto.DateTime, {{2016, 4, 1}, {12, 34, 56, 0}})
+      {:ok, '20160401123456Z'}
 
   """
   def dump(_, nil), do: {:ok, nil}
