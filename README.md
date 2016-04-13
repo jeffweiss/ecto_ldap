@@ -33,3 +33,47 @@
           password: "password",
           pool_size: 1
 
+## Usage
+
+Use the `ecto_ldap` adapter, just as you would any other Ecto backend.
+
+### Example Schema
+
+
+        defmodule User do
+          use Ecto.Schema
+          import Ecto.Changeset
+
+          @primary_key {:dn, :string, autogenerate: false}
+          schema "users" do
+            field :objectClass, {:array, :string}
+            field :loginShell, :string
+            field :mail, :string
+            field :mobile, :string
+            field :skills, {:array, :string}
+            field :sn, :string
+            field :st, :string
+            field :startDate, Ecto.DateTime
+            field :uid, :string
+            field :jpegPhoto, :binary
+          end
+
+          def changeset(model, params \\ :empty) do
+            model
+            |> cast(params, ~w(dn), ~w(objectClass loginShell mail mobile skills sn uid))
+            |> unique_constraint(:dn)
+          end
+
+        end
+
+### Example Queries
+
+        Repo.get User, "uid=jeff.weiss,ou=users,dc=example,dc=com"
+
+        Repo.get_by User, uid: "jeff.weiss"
+
+        Repo.all User, st: "OR"
+
+        Ecto.Query.from(u in User, where: like(u.mail, "%@example.com"))
+
+        Ecto.Query.from(u in User, where: "inetOrgPerson" in u.objectClass and not is_nil(u.jpegPhoto), select: u.uid)
