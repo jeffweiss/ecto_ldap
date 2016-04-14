@@ -67,6 +67,12 @@ defmodule Ecto.Ldap.Adapter do
       iex> TestRepo.get_by(TestUser, uid: "jeff.weiss").loginShell
       "/bin/zsh"
 
+      iex> Ecto.Query.from(u in TestUser, where: u.st == "OR" and "elixir" in u.skills) |> TestRepo.all |> List.first |> Map.get(:uid)
+      "jeff.weiss"
+
+      iex> Ecto.Query.from(u in TestUser, where: like(u.sn, "%Weis%")) |> TestRepo.all |> List.first |> Map.get(:uid)
+      "jeff.weiss"
+
   """
 
   ####
@@ -403,7 +409,7 @@ defmodule Ecto.Ldap.Adapter do
   defp prune_attributes(attributes, fields, [{{:&, [], [0]}, _}]) do
     for field <- fields, do: Keyword.get(attributes, field)
   end
-  defp prune_attributes(attributes, all_fields, selected_fields) do
+  defp prune_attributes(attributes, _all_fields, selected_fields) do
     for {{{:., [], [{:&, [], [0]}, field]}, [ecto_type: _], []}, 0} <- selected_fields do
       Keyword.get(attributes, field)
     end
@@ -430,7 +436,7 @@ defmodule Ecto.Ldap.Adapter do
     split_and_not_nil(t, count - 1, false, [h|acc])
   end
 
-  def update(repo, schema_meta, fields, filters, _autogenerate_id, returning, options) do
+  def update(_repo, schema_meta, fields, filters, _autogenerate_id, _returning, _options) do
 
     dn = Keyword.get(filters, :dn)
 
