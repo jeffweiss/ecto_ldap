@@ -22,6 +22,18 @@ defmodule EctoLdap.Mixfile do
        "docs": :docs,
        "hex.docs": :docs,
      ],
+     dialyzer: [
+       plt_add_apps: [:ecto, :timex_ecto, :timex, :eldap],
+       flags: [
+         "-Wunmatched_returns",
+         "-Werror_handling",
+         "-Wrace_conditions",
+         "-Wunderspecs",
+         "-Wunknown",
+         "-Woverspecs",
+         "-Wspecdiffs",
+       ]
+     ],
      deps: deps]
   end
 
@@ -49,6 +61,7 @@ defmodule EctoLdap.Mixfile do
       {:excoveralls, "~> 0.5", only: :test},
       {:ex_doc, "~> 0.11.4", only: :docs},
       {:earmark, "~> 0.2"},
+      {:dialyxir, "~> 0.3", only: :dev},
     ]
   end
 

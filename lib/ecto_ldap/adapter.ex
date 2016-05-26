@@ -137,10 +137,12 @@ defmodule Ecto.Ldap.Adapter do
     {:reply, base, state}
   end
 
+  @spec ldap_api([{atom, any}]) :: :eldap | module
   defp ldap_api(state) do
     Keyword.get(state, :ldap_api, :eldap)
   end
 
+  @spec ldap_connect([{atom, any}]) :: {:ok, pid}
   defp ldap_connect(state) do
     user_dn   = Keyword.get(state, :user_dn)  |> to_char_list
     password  = Keyword.get(state, :password) |> to_char_list
@@ -545,6 +547,7 @@ defmodule Ecto.Ldap.Adapter do
       {:ok, ["Home, home on the range", "where the deer and the antelope play"]}
 
   """
+  @spec load(any, any) :: :error | {:ok, any}
   def load(:id, value), do: {:ok, value}
   def load(_, nil), do: {:ok, nil}
   def load(:string, value), do: {:ok, trim_converted(convert_from_erlang(value))}
@@ -560,6 +563,7 @@ defmodule Ecto.Ldap.Adapter do
     {:ok, value |> Enum.map(&convert_from_erlang/1) }
   end
 
+  @spec trim_converted(any) :: any
   defp trim_converted(list) when is_list(list), do: hd(list)
   defp trim_converted(other), do: other
 
@@ -610,6 +614,7 @@ defmodule Ecto.Ldap.Adapter do
       {:ok, '20160401123456Z'}
 
   """
+  @spec dump(any, atom | binary | list | number | tuple) :: :error | {:ok, any}
   def dump(_, nil), do: {:ok, nil}
   def dump(:string, value), do: {:ok, convert_to_erlang(value)}
   def dump({:array, :string}, value) when is_list(value), do: {:ok, convert_to_erlang(value)}
@@ -620,10 +625,12 @@ defmodule Ecto.Ldap.Adapter do
   end
   def dump(_, value), do: {:ok, convert_to_erlang(value)}
 
+  @spec convert_from_erlang(any) :: any
   defp convert_from_erlang(list=[head|_]) when is_list(head), do: Enum.map(list, &convert_from_erlang/1)
   defp convert_from_erlang(string) when is_list(string), do: :binary.list_to_bin(string)
   defp convert_from_erlang(other), do: other
 
+  @spec convert_to_erlang(list | String.t | atom | number) :: list | number
   defp convert_to_erlang(list) when is_list(list), do: Enum.map(list, &convert_to_erlang/1)
   defp convert_to_erlang(string) when is_binary(string), do: :binary.bin_to_list(string)
   defp convert_to_erlang(atom) when is_atom(atom), do: atom |> Atom.to_string |> convert_to_erlang
