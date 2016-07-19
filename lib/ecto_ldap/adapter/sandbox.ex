@@ -98,6 +98,7 @@ defmodule Ecto.Ldap.Adapter.Sandbox do
     ldap_response = {:ok, {:eldap_search_result, [List.first(state)], []}}
     {:reply, ldap_response, state}
   end
+  
   def handle_call({:search, %{base: 'ou=users,dc=example,dc=com', filter: {:and, [and: [substrings: {:SubstringFilter, 'uid', [{:initial, 'jeff'}]}], and: []]}}}, _from, state) do
     ldap_response = {:ok, {:eldap_search_result, [List.first(state)], []}}
     {:reply, ldap_response, state}
@@ -118,6 +119,19 @@ defmodule Ecto.Ldap.Adapter.Sandbox do
     ldap_response = {:ok, {:eldap_search_result, [List.first(state)], []}}
     {:reply, ldap_response, state}
   end
+  def handle_call({:search, %{base: 'ou=users,dc=example,dc=com', filter: {:and, [and: [not: {:equalityMatch, {:AttributeValueAssertion, 'uid', 'jeff.weiss'}}], and: []]}}}, _from, state) do
+    ldap_response = {:ok, {:eldap_search_result, [List.first(state)], []}}
+    {:reply, ldap_response, state}
+  end
+  def handle_call({:search, %{base: 'ou=users,dc=example,dc=com', filter: {:and, [and: [greaterOrEqual: {:AttributeValueAssertion, 'uidNumber', 5002}], and: []]}}}, _from, state) do
+    ldap_response = {:ok, {:eldap_search_result, [List.first(state)], []}}
+    {:reply, ldap_response, state}
+  end
+  def handle_call({:search, %{base: 'ou=users,dc=example,dc=com', filter: {:and, [and: [lessOrEqual: {:AttributeValueAssertion, 'uidNumber', 5001}], and: []]}}}, _from, state) do
+    ldap_response = {:ok, {:eldap_search_result, [List.first(state)], []}}
+    {:reply, ldap_response, state}
+  end
+  
   def handle_call({:search, %{base: 'ou=users,dc=example,dc=com'} = options}, _from, state) do
     ldap_response = {:ok, {:eldap_search_result, state, []}}
     {:reply, ldap_response, state}

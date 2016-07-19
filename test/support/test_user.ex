@@ -14,6 +14,7 @@ defmodule Ecto.Ldap.TestUser do
     field :startDate, Ecto.DateTime
     field :uid, :string
     field :jpegPhoto, :binary
+    field :uidNumber, :integer
   end
 
   def changeset(model, params \\ :empty) do
