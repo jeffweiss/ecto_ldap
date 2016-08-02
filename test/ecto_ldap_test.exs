@@ -3,6 +3,7 @@ defmodule EctoLdapTest do
   alias Ecto.Ldap.TestUser
   require Ecto.Query
   use ExUnit.Case
+  use Timex
   doctest Ecto.Ldap.Adapter
 
   test "retrieve model by id/dn" do
@@ -44,6 +45,21 @@ defmodule EctoLdapTest do
 
   test "all with criteria" do
     users = TestRepo.all TestUser, uid: "jeff.weiss"
+    assert Enum.count(users) == 1
+  end
+
+  test "all with negation criteria" do
+    users = TestRepo.all(Ecto.Query.from(u in TestUser, where: u.uid != "jeff.weiss"))
+    assert Enum.count(users) == 1
+  end
+
+  test "all with greater than or equal to" do
+    users = TestRepo.all(Ecto.Query.from(u in TestUser, where: u.uidNumber >= 5002))
+    assert Enum.count(users) == 1
+  end
+
+  test "all with less than or equal to" do
+    users = TestRepo.all(Ecto.Query.from(u in TestUser, where: u.uidNumber <= 5001))
     assert Enum.count(users) == 1
   end
 
@@ -182,6 +198,36 @@ defmodule EctoLdapTest do
   test "delete_all unsupported" do
     assert_raise RuntimeError, fn ->
       TestRepo.delete_all(TestUser, dn: "uid=manny,ou=users,dc=example,dc=com")
+    end
+  end
+
+  test "update_all not supported" do
+    assert_raise ArgumentError, fn ->
+      TestRepo.update_all(TestUser, dn: "uid=manny,ou=users,dc=example,dc=com")
+    end
+  end
+
+  test "autogenerate not supported" do
+    assert_raise ArgumentError, fn ->
+      Ecto.Ldap.Adapter.autogenerate(nil)
+    end
+  end
+
+  test "delete not supported" do
+    assert_raise ArgumentError, fn ->
+      TestRepo.delete(%TestUser{dn: "foo"})
+    end
+  end
+
+  test "insert not supported" do
+    assert_raise ArgumentError, fn ->
+      TestRepo.insert(%TestUser{})
+    end
+  end
+
+  test "insert_all not supported" do
+    assert_raise ArgumentError, fn ->
+      TestRepo.insert_all(TestUser, [[dn: "foo"], [dn: "bar"]])
     end
   end
 

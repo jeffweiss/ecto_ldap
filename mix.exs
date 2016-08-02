@@ -6,8 +6,8 @@ defmodule EctoLdap.Mixfile do
 
   def project do
     [app: :ecto_ldap,
-     version: "0.2.8",
-     elixir: "~> 1.2",
+     version: "0.3.0",
+     elixir: "~> 1.3",
      name: "ecto_ldap",
      description: @description,
      package: package,
@@ -55,9 +55,9 @@ defmodule EctoLdap.Mixfile do
   # Type "mix help deps" for more examples and options
   defp deps do
     [
-      {:ecto, "~> 1.1"},
-      {:timex, github: "bitwalker/timex", override: true},
-      {:timex_ecto, "~> 1.0"},
+      {:ecto, "~> 2.0"},
+      {:timex, "~> 3.0"},
+      {:timex_ecto, "~> 3.0"},
       {:excoveralls, "~> 0.5", only: :test},
       {:ex_doc, "~> 0.11.4", only: :docs},
       {:earmark, "~> 0.2"},
