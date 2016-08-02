@@ -59,8 +59,8 @@ defmodule EctoLdap.Mixfile do
       {:timex, "~> 3.0"},
       {:timex_ecto, "~> 3.0"},
       {:excoveralls, "~> 0.5", only: :test},
-      {:ex_doc, "~> 0.11", only: :docs},
-      {:earmark, "~> 1.0", override: true, only: :docs},
+      {:ex_doc, "~> 0.11", only: [:dev, :docs]},
+      {:earmark, "~> 1.0", override: true, only: [:dev, :docs]},
       {:dialyxir, "~> 0.3", only: :dev},
     ]
   end
