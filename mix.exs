@@ -6,7 +6,7 @@ defmodule EctoLdap.Mixfile do
 
   def project do
     [app: :ecto_ldap,
-     version: "0.3.0",
+     version: "0.3.1",
      elixir: "~> 1.3",
      name: "ecto_ldap",
      description: @description,
