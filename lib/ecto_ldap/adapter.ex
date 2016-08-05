@@ -259,6 +259,10 @@ defmodule Ecto.Ldap.Adapter do
   defp translate_ecto_lisp_to_eldap_filter({op, [], [value1, {:^, [], [idx,len]}]}, params) do
     translate_ecto_lisp_to_eldap_filter({op, [], [value1, Enum.slice(params, idx, len)]}, params)
   end
+  # {:in, [], [{:^, [], [0]}, {{:., [], [{:&, [], [0]}, :uniqueMember]}, [], []}]}, ['uid=manny,ou=users,dc=puppetlabs,dc=com']
+  defp translate_ecto_lisp_to_eldap_filter({op, [], [{:^, [], [idx]}, value2]}, params) do
+    translate_ecto_lisp_to_eldap_filter({op, [], [Enum.at(params, idx), value2]}, params)
+  end
 
   defp translate_ecto_lisp_to_eldap_filter({:ilike, _, [value1, "%" <> value2]}, _) do
     like_with_leading_wildcard(value1, value2)

@@ -230,6 +230,12 @@ defmodule EctoLdapTest do
     assert values == [["jeff.weiss", ['5001']], ["manny", ['5002']]]
   end
 
+  test "query for bound variable in array attribute" do
+    obj = "posixAccount"
+    values = TestRepo.all(Ecto.Query.from(u in TestUser, where: ^obj in u.objectClass))
+    assert Enum.count(values) == 2
+  end
+
   test "delete_all unsupported" do
     assert_raise RuntimeError, fn ->
       TestRepo.delete_all(TestUser, dn: "uid=manny,ou=users,dc=example,dc=com")
