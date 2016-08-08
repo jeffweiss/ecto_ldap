@@ -220,12 +220,17 @@ defmodule Ecto.Ldap.Adapter do
     case select.fields do
       [{:&, [], [0]}] -> 
         { :attributes,
-          sources |> ordered_fields |> Enum.map(&convert_to_erlang/1) }
+          sources
+          |> ordered_fields
+          |> List.flatten
+          |> Enum.map(&convert_to_erlang/1)
+        }
       attributes -> 
         {
           :attributes,
           attributes
           |> Enum.map(&extract_select/1)
+          |> List.flatten
           |> Enum.map(&convert_to_erlang/1)
         }
     end
@@ -253,6 +258,10 @@ defmodule Ecto.Ldap.Adapter do
   end
   defp translate_ecto_lisp_to_eldap_filter({op, [], [value1, {:^, [], [idx,len]}]}, params) do
     translate_ecto_lisp_to_eldap_filter({op, [], [value1, Enum.slice(params, idx, len)]}, params)
+  end
+  # {:in, [], [{:^, [], [0]}, {{:., [], [{:&, [], [0]}, :uniqueMember]}, [], []}]}, ['uid=manny,ou=users,dc=puppetlabs,dc=com']
+  defp translate_ecto_lisp_to_eldap_filter({op, [], [{:^, [], [idx]}, value2]}, params) do
+    translate_ecto_lisp_to_eldap_filter({op, [], [Enum.at(params, idx), value2]}, params)
   end
 
   defp translate_ecto_lisp_to_eldap_filter({:ilike, _, [value1, "%" <> value2]}, _) do
@@ -396,7 +405,7 @@ defmodule Ecto.Ldap.Adapter do
     model.__schema__(:fields)
   end
 
-  def count_fields(fields, sources) when is_list(fields), do: fields |> Enum.map(fn field -> count_fields(field, sources) end)
+  def count_fields(fields, sources) when is_list(fields), do: fields |> Enum.map(fn field -> count_fields(field, sources) end) |> List.flatten
   def count_fields({{_, _, fields}, _, _}, sources), do: fields |> extract_field_info(sources)
   def count_fields({:&, _, [_idx]} = field, sources), do: extract_field_info(field, sources)
 
@@ -416,14 +425,14 @@ defmodule Ecto.Ldap.Adapter do
       end))
   end
 
-  defp prune_attributes(attributes, _all_fields, [{[{:&, [], [0]}, field], _}]), do: Keyword.get(attributes, field)
   defp prune_attributes(attributes, all_fields, [{{:&, [], [0]}, _}] = _selected_fields) do
     for field <- all_fields, do: Keyword.get(attributes, field)
   end
   defp prune_attributes(attributes, _all_fields, selected_fields) do
-    for [{[{:&, [], [0]}, field], _}] <- selected_fields do
+    selected_fields
+    |> Enum.map(fn {[{:&, [], _}, field], _} ->
       Keyword.get(attributes, field)
-    end
+      end)
   end
 
   defp generate_models(row, preprocess, [{:&, [], [_idx, _columns, _count]}] = fields), do:

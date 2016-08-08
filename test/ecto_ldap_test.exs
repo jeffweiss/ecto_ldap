@@ -195,6 +195,47 @@ defmodule EctoLdapTest do
     assert Enum.count(values) == 2
   end
 
+  test "query for one record using a single select argument returns single attribute in a list" do
+    values = TestRepo.all(Ecto.Query.from(u in TestUser, where: u.uid == "jeff.weiss", select: u.st))
+    assert values == ["OR"]
+  end
+
+  test "query for one record using a single select argument returns an array attribute as a list inside a list" do
+    values = TestRepo.all(Ecto.Query.from(u in TestUser, where: u.uid == "jeff.weiss", select: u.skills))
+    assert values == [["dad jokes", "being awesome", "elixir"]]
+  end
+
+  test "query for one record using a single-entry list argument for select returns an array attribute as a list inside a list of lists" do
+    values = TestRepo.all(Ecto.Query.from(u in TestUser, where: u.uid == "jeff.weiss", select: [u.skills]))
+    assert values == [[["dad jokes", "being awesome", "elixir"]]]
+  end
+
+  test "query for one record using a single-entry list argument for select returns single attribute in a list of lists" do
+    values = TestRepo.all(Ecto.Query.from(u in TestUser, where: u.uid == "jeff.weiss", select: [u.st]))
+    assert values == [["OR"]]
+  end
+
+  test "query for a single attribute across multiple records returns selected attribute in a list" do
+    values = TestRepo.all(Ecto.Query.from(u in TestUser, where: u.st == "OR", select: u.uid))
+    assert values == ["jeff.weiss", "manny"]
+  end
+
+  test "query for single attribute as a single-entry list argument for select across multiple records returns selected attribute in a list of lists" do
+    values = TestRepo.all(Ecto.Query.from(u in TestUser, where: u.st == "OR", select: [u.uid]))
+    assert values == [["jeff.weiss"], ["manny"]]
+  end
+
+  test "query for multiple attributes across multiple records returns selected attributes in a list of lists" do
+    values = TestRepo.all(Ecto.Query.from(u in TestUser, where: u.st == "OR", select: [u.uid, u.uidNumber]))
+    assert values == [["jeff.weiss", ['5001']], ["manny", ['5002']]]
+  end
+
+  test "query for bound variable in array attribute" do
+    obj = "posixAccount"
+    values = TestRepo.all(Ecto.Query.from(u in TestUser, where: ^obj in u.objectClass))
+    assert Enum.count(values) == 2
+  end
+
   test "delete_all unsupported" do
     assert_raise RuntimeError, fn ->
       TestRepo.delete_all(TestUser, dn: "uid=manny,ou=users,dc=example,dc=com")
