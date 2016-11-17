@@ -488,11 +488,11 @@ defmodule Ecto.Ldap.Adapter do
 
   ### Examples
 
-    iex> Ecto.Ldap.Adapter.loaders(:id, :id)
-    [:id]
+      iex> Ecto.Ldap.Adapter.loaders(:id, :id)
+      [:id]
 
-    iex> Ecto.Ldap.Adapter.loaders(:woo, :woo)
-    [:woo]
+      iex> Ecto.Ldap.Adapter.loaders(:woo, :woo)
+      [:woo]
 
   Given that LDAP uses ASN.1 GeneralizedTime for its datetime storage format, values
   where the type is `Ecto.DateTime` will be converted to a string and parsed as ASN.1
@@ -500,29 +500,29 @@ defmodule Ecto.Ldap.Adapter do
 
   ### Examples
 
-    iex> [conversion_function] = Ecto.Ldap.Adapter.loaders(:datetime, :datetime)
-    iex> conversion_function.('20160202000000.000Z')
-    { :ok, {{2016, 2, 2}, {0, 0, 0, 0}}}
-    iex> conversion_function.('20160401123456.789Z')
-    { :ok, {{2016, 4, 1}, {12, 34, 56, 789000}}}
-    iex> conversion_function.('20160401123456Z')
-    { :ok, {{2016, 4, 1}, {12, 34, 56, 0}}}
-    iex> conversion_function.('201604011234Z')
-    { :ok, {{2016, 4, 1}, {12, 34, 0, 0}}}
-    iex> conversion_function.('2016040112Z')
-    { :ok, {{2016, 4, 1}, {12, 0, 0, 0}}}
+      iex> [conversion_function] = Ecto.Ldap.Adapter.loaders(:datetime, :datetime)
+      iex> conversion_function.('20160202000000.000Z')
+      { :ok, {{2016, 2, 2}, {0, 0, 0, 0}}}
+      iex> conversion_function.('20160401123456.789Z')
+      { :ok, {{2016, 4, 1}, {12, 34, 56, 789000}}}
+      iex> conversion_function.('20160401123456Z')
+      { :ok, {{2016, 4, 1}, {12, 34, 56, 0}}}
+      iex> conversion_function.('201604011234Z')
+      { :ok, {{2016, 4, 1}, {12, 34, 0, 0}}}
+      iex> conversion_function.('2016040112Z')
+      { :ok, {{2016, 4, 1}, {12, 0, 0, 0}}}
 
-    iex> [conversion_function] = Ecto.Ldap.Adapter.loaders(Ecto.DateTime, Ecto.DateTime)
-    iex> conversion_function.("20160202000000.000Z")
-    { :ok, {{2016, 2, 2}, {0, 0, 0, 0}}}
-    iex> conversion_function.('20160401123456.789Z')
-    { :ok, {{2016, 4, 1}, {12, 34, 56, 789000}}}
-    iex> conversion_function.('20160401123456Z')
-    { :ok, {{2016, 4, 1}, {12, 34, 56, 0}}}
-    iex> conversion_function.('201604011234Z')
-    { :ok, {{2016, 4, 1}, {12, 34, 0, 0}}}
-    iex> conversion_function.('2016040112Z')
-    { :ok, {{2016, 4, 1}, {12, 0, 0, 0}}}
+      iex> [conversion_function] = Ecto.Ldap.Adapter.loaders(Ecto.DateTime, Ecto.DateTime)
+      iex> conversion_function.("20160202000000.000Z")
+      { :ok, {{2016, 2, 2}, {0, 0, 0, 0}}}
+      iex> conversion_function.('20160401123456.789Z')
+      { :ok, {{2016, 4, 1}, {12, 34, 56, 789000}}}
+      iex> conversion_function.('20160401123456Z')
+      { :ok, {{2016, 4, 1}, {12, 34, 56, 0}}}
+      iex> conversion_function.('201604011234Z')
+      { :ok, {{2016, 4, 1}, {12, 34, 0, 0}}}
+      iex> conversion_function.('2016040112Z')
+      { :ok, {{2016, 4, 1}, {12, 0, 0, 0}}}
 
 
   String and binary types will take the first element if the underlying LDAP attribute
@@ -530,34 +530,34 @@ defmodule Ecto.Ldap.Adapter do
 
   ### Examples
 
-    iex> Ecto.Ldap.Adapter.loaders(:string, nil)
-    [nil]
+      iex> Ecto.Ldap.Adapter.loaders(:string, nil)
+      [nil]
 
-    iex> [conversion_function] = Ecto.Ldap.Adapter.loaders(:string, :string)
-    iex> {:ok, "hello"} = conversion_function.("hello")
-    { :ok, "hello"}
-    iex> conversion_function.(nil)
-    { :ok, nil}
-    iex> conversion_function.([83, 195, 182, 114, 101, 110])
-    { :ok, "Sören"}
-    iex> conversion_function.(['Home, home on the range', 'where the deer and the antelope play'])
-    { :ok, "Home, home on the range"}
+      iex> [conversion_function] = Ecto.Ldap.Adapter.loaders(:string, :string)
+      iex> {:ok, "hello"} = conversion_function.("hello")
+      { :ok, "hello"}
+      iex> conversion_function.(nil)
+      { :ok, nil}
+      iex> conversion_function.([83, 195, 182, 114, 101, 110])
+      { :ok, "Sören"}
+      iex> conversion_function.(['Home, home on the range', 'where the deer and the antelope play'])
+      { :ok, "Home, home on the range"}
 
-    iex> [conversion_function] = Ecto.Ldap.Adapter.loaders(:binary, :binary)
-    iex> {:ok, "hello"} = conversion_function.("hello")
-    { :ok, "hello"}
-    iex> conversion_function.(nil)
-    { :ok, nil}
-    iex> conversion_function.([[1,2,3,4,5], [6,7,8,9,10]])
-    { :ok, <<1,2,3,4,5>>}
+      iex> [conversion_function] = Ecto.Ldap.Adapter.loaders(:binary, :binary)
+      iex> {:ok, "hello"} = conversion_function.("hello")
+      { :ok, "hello"}
+      iex> conversion_function.(nil)
+      { :ok, nil}
+      iex> conversion_function.([[1,2,3,4,5], [6,7,8,9,10]])
+      { :ok, <<1,2,3,4,5>>}
 
   Array values will be each be converted.
 
   ### Examples
 
-    iex> [conversion_function] = Ecto.Ldap.Adapter.loaders({:array, :string}, {:array, :string})
-    iex> conversion_function.(["hello", "world"])
-    { :ok, ["hello", "world"]}
+      iex> [conversion_function] = Ecto.Ldap.Adapter.loaders({:array, :string}, {:array, :string})
+      iex> conversion_function.(["hello", "world"])
+      { :ok, ["hello", "world"]}
 
 
   """
@@ -600,43 +600,43 @@ defmodule Ecto.Ldap.Adapter do
 
   ### Examples
 
-    iex> Ecto.Ldap.Adapter.dumpers(:id, :id)
-    [:id]
+      iex> Ecto.Ldap.Adapter.dumpers(:id, :id)
+      [:id]
 
-    iex> Ecto.Ldap.Adapter.dumpers(:string, nil)
-    { :ok, nil}
+      iex> Ecto.Ldap.Adapter.dumpers(:string, nil)
+      { :ok, nil}
 
-    iex> Ecto.Ldap.Adapter.dumpers(:binary, :binary)
-    [:binary]
+      iex> Ecto.Ldap.Adapter.dumpers(:binary, :binary)
+      [:binary]
 
-    iex> Ecto.Ldap.Adapter.dumpers(:woo, :woo)
-    [:woo]
+      iex> Ecto.Ldap.Adapter.dumpers(:woo, :woo)
+      [:woo]
 
-    iex> Ecto.Ldap.Adapter.dumpers(:integer, :integer)
-    [:integer] 
+      iex> Ecto.Ldap.Adapter.dumpers(:integer, :integer)
+      [:integer]
 
 
   Strings are converted to Erlang character lists.
 
   ### Examples
 
-    iex> [conversion_function] = Ecto.Ldap.Adapter.dumpers({:in, :string}, {:in, :string})
-    iex> conversion_function.(["yes", "no"])
-    { :ok, {:in, ['yes', 'no']}}
+      iex> [conversion_function] = Ecto.Ldap.Adapter.dumpers({:in, :string}, {:in, :string})
+      iex> conversion_function.(["yes", "no"])
+      { :ok, {:in, ['yes', 'no']}}
 
-    iex> [conversion_function] = Ecto.Ldap.Adapter.dumpers(:string, :string)
-    iex> conversion_function.("bob")
-    { :ok, 'bob'}
-    iex> conversion_function.("Sören")
-    { :ok, [83, 195, 182, 114, 101, 110]}
-    iex> conversion_function.("José")
-    { :ok, [74, 111, 115, 195, 169]}
-    iex> conversion_function.(:atom)
-    { :ok, 'atom'}
+      iex> [conversion_function] = Ecto.Ldap.Adapter.dumpers(:string, :string)
+      iex> conversion_function.("bob")
+      { :ok, 'bob'}
+      iex> conversion_function.("Sören")
+      { :ok, [83, 195, 182, 114, 101, 110]}
+      iex> conversion_function.("José")
+      { :ok, [74, 111, 115, 195, 169]}
+      iex> conversion_function.(:atom)
+      { :ok, 'atom'}
 
-    iex> [conversion_function] = Ecto.Ldap.Adapter.dumpers({:array, :string}, {:array, :string})
-    iex> conversion_function.(["list", "of", "skills"])
-    { :ok, ['list', 'of', 'skills']}
+      iex> [conversion_function] = Ecto.Ldap.Adapter.dumpers({:array, :string}, {:array, :string})
+      iex> conversion_function.(["list", "of", "skills"])
+      { :ok, ['list', 'of', 'skills']}
 
 
   Ecto.DateTimes are converted to a stringified ASN.1 GeneralizedTime format in UTC. Currently,
@@ -644,15 +644,15 @@ defmodule Ecto.Ldap.Adapter do
 
   ### Examples
 
-    iex> [conversion_function] = Ecto.Ldap.Adapter.dumpers(:datetime, :datetime)
-    iex> conversion_function.({{2016, 2, 2}, {0, 0, 0, 0}})
-    { :ok, '20160202000000Z'}
+      iex> [conversion_function] = Ecto.Ldap.Adapter.dumpers(:datetime, :datetime)
+      iex> conversion_function.({{2016, 2, 2}, {0, 0, 0, 0}})
+      { :ok, '20160202000000Z'}
 
-    iex> [conversion_function] = Ecto.Ldap.Adapter.dumpers(Ecto.DateTime, Ecto.DateTime)
-    iex> conversion_function.({{2016, 4, 1}, {12, 34, 56, 789000}})
-    { :ok, '20160401123456Z'}
-    iex> conversion_function.({{2016, 4, 1}, {12, 34, 56, 0}})
-    { :ok, '20160401123456Z'}
+      iex> [conversion_function] = Ecto.Ldap.Adapter.dumpers(Ecto.DateTime, Ecto.DateTime)
+      iex> conversion_function.({{2016, 4, 1}, {12, 34, 56, 789000}})
+      { :ok, '20160401123456Z'}
+      iex> conversion_function.({{2016, 4, 1}, {12, 34, 56, 0}})
+      { :ok, '20160401123456Z'}
 
   """
   @spec dumpers(Ecto.Type.primitive, Ecto.Type.t) :: [(term -> {:ok, term} | :error) | Ecto.Type.t]
