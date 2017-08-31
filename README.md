@@ -9,29 +9,32 @@
 
 [From Hex](https://hex.pm/docs/publish), the package can be installed as follows:
 
-  1. Add ecto_ldap to your list of dependencies in `mix.exs`:
-
+  1. Add `ecto_ldap` to your list of dependencies in `mix.exs`:
+```elixir
         def deps do
           [{:ecto_ldap, "~> 0.3"}]
         end
+```
 
-  2. Ensure ecto_ldap is started before your application:
-
+  2. Ensure `ecto_ldap` is started before your application:
+```elixir
         def application do
           [applications: [:ecto_ldap]]
         end
+```
 
-  3. Specify Ecto.Ldap.Adapter as the adapter for your application's Repo:
-
-        config :my_app, MyApp.Repo,
-          adapter: Ecto.Ldap.Adapter,
-          hostname: "ldap.example.com",
-          base: "dc=example,dc=com",
-          port: 636,
-          ssl: true,
-          user_dn: "uid=sample_user,ou=users,dc=example,dc=com",
-          password: "password",
-          pool_size: 1
+  3. Specify `Ecto.Ldap.Adapter` as the adapter for your application's Repo:
+```elixir
+    config :my_app, MyApp.Repo,
+      adapter: Ecto.Ldap.Adapter,
+      hostname: "ldap.example.com",
+      base: "dc=example,dc=com",
+      port: 636,
+      ssl: true,
+      user_dn: "uid=sample_user,ou=users,dc=example,dc=com",
+      password: "password",
+      pool_size: 1
+```
 
 ## Usage
 
@@ -40,6 +43,7 @@ Use the `ecto_ldap` adapter, just as you would any other Ecto backend.
 ### Example Schema
 
 
+```elixir
         defmodule User do
           use Ecto.Schema
           import Ecto.Changeset
@@ -65,9 +69,11 @@ Use the `ecto_ldap` adapter, just as you would any other Ecto backend.
           end
 
         end
+```
 
 ### Example Queries
 
+```elixir
         Repo.get User, "uid=jeff.weiss,ou=users,dc=example,dc=com"
 
         Repo.get_by User, uid: "jeff.weiss"
@@ -77,3 +83,4 @@ Use the `ecto_ldap` adapter, just as you would any other Ecto backend.
         Ecto.Query.from(u in User, where: like(u.mail, "%@example.com"))
 
         Ecto.Query.from(u in User, where: "inetOrgPerson" in u.objectClass and not is_nil(u.jpegPhoto), select: u.uid)
+```
