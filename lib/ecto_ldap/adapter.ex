@@ -139,7 +139,7 @@ defmodule Ecto.Ldap.Adapter do
   end
 
   def handle_call(:base, _from, state) do
-    base = Keyword.get(state, :base) |> to_char_list
+    base = Keyword.get(state, :base) |> to_charlist()
     {:reply, base, state}
   end
 
@@ -150,9 +150,9 @@ defmodule Ecto.Ldap.Adapter do
 
   @spec ldap_connect([{atom, any}]) :: {:ok, pid}
   defp ldap_connect(state) do
-    user_dn   = Keyword.get(state, :user_dn)  |> to_char_list
-    password  = Keyword.get(state, :password) |> to_char_list
-    hostname  = Keyword.get(state, :hostname) |> to_char_list
+    user_dn   = Keyword.get(state, :user_dn)  |> to_charlist()
+    password  = Keyword.get(state, :password) |> to_charlist()
+    hostname  = Keyword.get(state, :hostname) |> to_charlist()
     port      = Keyword.get(state, :port, 636)
     use_ssl   = Keyword.get(state, :ssl, true)
 
@@ -172,7 +172,7 @@ defmodule Ecto.Ldap.Adapter do
   end
 
   def prepare(:all, query) do
-    query_metadata = 
+    query_metadata =
       [
         :construct_filter,
         :construct_base,
@@ -190,7 +190,7 @@ defmodule Ecto.Ldap.Adapter do
 
   @doc false
   def construct_filter(%{wheres: wheres}) when is_list(wheres) do
-    filter_term = 
+    filter_term =
       wheres
       |> Enum.map(&Map.get(&1, :expr))
     {:filter, filter_term}
@@ -207,10 +207,10 @@ defmodule Ecto.Ldap.Adapter do
 
   @doc false
   def construct_base(%{from: {from, _}}) do
-    {:base, to_char_list("ou=" <> from <> "," <> to_string(base)) }
+    {:base, to_charlist("ou=" <> from <> "," <> to_string(base())) }
   end
   @doc false
-  def constuct_base(_), do: {:base, base}
+  def constuct_base(_), do: {:base, base()}
 
   @doc false
   def construct_scope(_), do: {:scope, :eldap.wholeSubtree}
@@ -218,14 +218,14 @@ defmodule Ecto.Ldap.Adapter do
   @doc false
   def construct_attributes(%{select: select, sources: sources}) do
     case select.fields do
-      [{:&, [], [0]}] -> 
+      [{:&, [], [0]}] ->
         { :attributes,
           sources
           |> ordered_fields
           |> List.flatten
           |> Enum.map(&convert_to_erlang/1)
         }
-      attributes -> 
+      attributes ->
         {
           :attributes,
           attributes
@@ -323,8 +323,8 @@ defmodule Ecto.Ldap.Adapter do
   defp translate_value(%Ecto.Query.Tagged{value: value}), do: value
   defp translate_value(atom) when is_atom(atom) do
     atom
-    |> to_string
-    |> to_char_list
+    |> to_string()
+    |> to_charlist()
   end
   defp translate_value(other), do: convert_to_erlang(other)
 
@@ -341,6 +341,7 @@ defmodule Ecto.Ldap.Adapter do
       |> search
 
     fields = ordered_fields(query_metadata.sources)
+    IO.inspect query_metadata
     count = count_fields(query_metadata.select, query_metadata.sources)
 
     {:ok, {:eldap_search_result, results, []}} = search_response
@@ -350,11 +351,14 @@ defmodule Ecto.Ldap.Adapter do
         entry
         |> process_entry
         |> prune_attributes(fields, count)
-        |> generate_models(preprocess, query_metadata.fields)
+        |> generate_models(preprocess, extract_fields(query_metadata))
       end
 
     {count, result_set}
   end
+
+  defp extract_fields(%{fields: fields}), do: fields
+  defp extract_fields(%{select: %{preprocess: [{:source, _, fields}]}}), do: fields
 
   defp translate_options_to_filter([]), do: []
   defp translate_options_to_filter(list) when is_list(list) do
@@ -405,6 +409,7 @@ defmodule Ecto.Ldap.Adapter do
     model.__schema__(:fields)
   end
 
+  def count_fields(%{preprocess: [{:source, _, fields}]}, _), do: fields
   def count_fields(fields, sources) when is_list(fields), do: fields |> Enum.map(fn field -> count_fields(field, sources) end) |> List.flatten
   def count_fields({{_, _, fields}, _, _}, sources), do: fields |> extract_field_info(sources)
   def count_fields({:&, _, [_idx]} = field, sources), do: extract_field_info(field, sources)
@@ -419,7 +424,7 @@ defmodule Ecto.Ldap.Adapter do
 
   defp process_entry({:eldap_entry, dn, attributes}) when is_list(attributes) do
     List.flatten(
-      [dn: dn], 
+      [dn: dn],
       Enum.map(attributes, fn {key, value} ->
         {key |> to_string |> String.to_atom, value}
       end))
@@ -432,6 +437,7 @@ defmodule Ecto.Ldap.Adapter do
     selected_fields
     |> Enum.map(fn {[{:&, [], _}, field], _} ->
       Keyword.get(attributes, field)
+      {field, _type} -> Keyword.get(attributes, field)
       end)
   end
 
@@ -687,6 +693,6 @@ defmodule Ecto.Ldap.Adapter do
   def autogenerate(_), do: raise ArgumentError, message: "autogenerate not supported"
   def delete(_, _, _, _), do: raise ArgumentError, message: "delete not supported"
   def ensure_all_started(_, _), do: {:ok, []}
-  def insert(_, _, _, _, _), do: raise ArgumentError, message: "insert not supported"
-  def insert_all(_, _, _, _, _, _), do: raise ArgumentError, message: "insert_all not supported"
+  def insert(_, _, _, _, _, _), do: raise ArgumentError, message: "insert not supported"
+  def insert_all(_, _, _, _, _, _, _), do: raise ArgumentError, message: "insert_all not supported"
 end
