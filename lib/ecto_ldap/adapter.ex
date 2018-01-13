@@ -345,24 +345,27 @@ defmodule Ecto.Ldap.Adapter do
       |> search
 
     fields = ordered_fields(query_metadata.sources)
-    IO.inspect query_metadata
-    count = count_fields(query_metadata.select, query_metadata.sources)
+    count  = count_fields(query_metadata.select, query_metadata.sources)
 
     {:ok, {:eldap_search_result, results, []}} = search_response
+
+    selected_fields = Keyword.get(prepared, :attributes, fields)
+    |> Enum.map(fn text_field ->
+                text_field
+                |> convert_from_erlang
+                |> String.to_atom
+                end)
 
     result_set =
       for entry <- results do
         entry
         |> process_entry
-        |> prune_attributes(fields, count)
-        |> generate_models(preprocess, extract_fields(query_metadata))
+        |> prune_attributes(fields, selected_fields)
+        |> preprocess.()
       end
 
     {count, result_set}
   end
-
-  defp extract_fields(%{fields: fields}), do: fields
-  defp extract_fields(%{select: %{preprocess: [{:source, _, fields}]}}), do: fields
 
   defp translate_options_to_filter([]), do: []
   defp translate_options_to_filter(list) when is_list(list) do
@@ -417,6 +420,7 @@ defmodule Ecto.Ldap.Adapter do
   def count_fields(fields, sources) when is_list(fields), do: fields |> Enum.map(fn field -> count_fields(field, sources) end) |> List.flatten
   def count_fields({{_, _, fields}, _, _}, sources), do: fields |> extract_field_info(sources)
   def count_fields({:&, _, [_idx]} = field, sources), do: extract_field_info(field, sources)
+  def count_fields(_field, sources), do: elem(sources, 0)
 
   defp extract_field_info({:&, _, [idx]} = field, sources) do
     {_source, model} = elem(sources, idx)
@@ -439,23 +443,11 @@ defmodule Ecto.Ldap.Adapter do
   end
   defp prune_attributes(attributes, _all_fields, selected_fields) do
     selected_fields
-    |> Enum.map(fn {[{:&, [], _}, field], _} ->
-      Keyword.get(attributes, field)
-      {field, _type} -> Keyword.get(attributes, field)
-      end)
+    |> Enum.map(fn {field, _type} -> Keyword.get(attributes, field)
+                            field -> Keyword.get(attributes, field) end)
   end
 
-  defp generate_models(row, preprocess, [{:&, [], [_idx, _columns, _count]}] = fields), do:
-    Enum.map(fields, fn field -> preprocess.(field, row, nil) end)
-  defp generate_models([field_data | data], preprocess, [{{:., [], [{:&, [], [0]}, _field_name]}, [ecto_type: _type], []} = field | remaining_fields]), do:
-    generate_models(data, preprocess, remaining_fields, [preprocess.(field, field_data, nil)])
-  defp generate_models([field_data | data], preprocess, [field | remaining_fields], mapped_data), do:
-    generate_models(data, preprocess, remaining_fields, [preprocess.(field, field_data, nil) | mapped_data])
-  defp generate_models([], _preprocess, [], mapped_data), do:
-    :lists.reverse(mapped_data)
-
   def update(_repo, schema_meta, fields, filters, _returning, _options) do
-
     dn = Keyword.get(filters, :dn)
 
     modify_operations =

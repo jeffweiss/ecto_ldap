@@ -11,7 +11,7 @@ defmodule Ecto.Ldap.TestUser do
     field :skills, {:array, :string}
     field :sn, :string
     field :st, :string
-    field :startDate, Ecto.DateTime
+    field :startDate, :naive_datetime
     field :uid, :string
     field :jpegPhoto, :binary
     field :uidNumber, :integer

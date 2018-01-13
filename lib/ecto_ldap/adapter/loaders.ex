@@ -101,13 +101,13 @@ defmodule Ecto.Ldap.Adapter.Loaders do
   def load_integer(value) do
     {:ok, trim_converted(convert_from_erlang(value))}
   end
+
   def load_string(value) do
     {:ok, trim_converted(convert_from_erlang(value))}
   end
 
-  #defp load_array(array), do: {:ok, Enum.map(array, &convert_from_erlang/1)}
-  def load_array(_array) do
-    {:ok, &convert_from_erlang/1}
+  def load_array(array) do
+    {:ok, convert_from_erlang(array)}
   end
 
   def load_date(value) do
