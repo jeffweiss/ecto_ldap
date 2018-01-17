@@ -91,7 +91,7 @@ defmodule EctoLdapTest do
     TestUser
     |> TestRepo.get("uid=manny,ou=users,dc=example,dc=com")
     |> TestUser.changeset(%{})
-    |> Ecto.Changeset.put_change("skills", [])
+    |> Ecto.Changeset.put_change(:skills, [])
     |> TestRepo.update
 
     updated_user = TestRepo.get(TestUser, "uid=manny,ou=users,dc=example,dc=com")
@@ -105,8 +105,8 @@ defmodule EctoLdapTest do
     TestUser
     |> TestRepo.get("uid=manny,ou=users,dc=example,dc=com")
     |> TestUser.changeset(%{})
-    |> Ecto.Changeset.put_change("sn", surname)
-    |> Ecto.Changeset.put_change("mail", mail)
+    |> Ecto.Changeset.put_change(:sn, surname)
+    |> Ecto.Changeset.put_change(:mail, mail)
     |> TestRepo.update
 
     updated_user = TestRepo.get(TestUser, "uid=manny,ou=users,dc=example,dc=com")

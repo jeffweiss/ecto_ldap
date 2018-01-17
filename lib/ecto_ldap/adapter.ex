@@ -458,7 +458,7 @@ defmodule Ecto.Ldap.Adapter do
 
     case update(dn, modify_operations) do
       :ok ->
-        {:ok, fields}
+        {:ok, []}
       {:error, reason} ->
         {:invalid, [reason]}
     end
