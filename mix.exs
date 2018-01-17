@@ -61,7 +61,7 @@ defmodule EctoLdap.Mixfile do
       {:excoveralls, "~> 0.5", only: :test},
       {:ex_doc, "~> 0.11", only: [:dev, :docs]},
       {:earmark, "~> 1.0", override: true, only: [:dev, :docs]},
-      {:dialyxir, "~> 0.3", only: :dev},
+      {:dialyxir, "~> 0.3", only: :dev, runtime: false},
     ]
   end
 

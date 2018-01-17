@@ -6,6 +6,7 @@ defmodule Ecto.Ldap.Adapter do
   @behaviour Ecto.Adapter
   @behaviour Ecto.Adapter.Storage
 
+  @spec storage_up(any()) :: {:error, :already_up}
   def storage_up(_), do: {:error, :already_up}
   def storage_down(_), do: {:error, :already_down}
 
@@ -95,6 +96,7 @@ defmodule Ecto.Ldap.Adapter do
   end
 
   @doc false
+  @spec child_spec(any, any) :: Supervisor.child_spec()
   def child_spec(repo, opts) do
     worker(__MODULE__, [repo, opts], name: __MODULE__)
   end
@@ -153,7 +155,9 @@ defmodule Ecto.Ldap.Adapter do
 
   @spec ldap_api([{atom, any}]) :: :eldap | module
   defp ldap_api(state) do
-    Keyword.get(state, :ldap_api, :eldap)
+    module = Keyword.get(state, :ldap_api, :eldap)
+    Code.ensure_loaded(module)
+    module
   end
 
   @spec ldap_connect([{atom, any}]) :: {:ok, pid}
@@ -165,6 +169,7 @@ defmodule Ecto.Ldap.Adapter do
     use_ssl   = Keyword.get(state, :ssl, true)
 
     {:ok, handle} = ldap_api(state).open([hostname], [{:port, port}, {:ssl, use_ssl}])
+    true = Kernel.is_pid(handle)
     ldap_api(state).simple_bind(handle, user_dn, password)
     {:ok, handle}
   end
@@ -481,9 +486,18 @@ defmodule Ecto.Ldap.Adapter do
     :eldap.mod_replace(convert_to_erlang(attribute), [value])
   end
 
+  @spec autogenerate(any) :: no_return
   def autogenerate(_), do: raise ArgumentError, message: "autogenerate not supported"
+
+  @spec delete(any, any, any, any) :: no_return
   def delete(_, _, _, _), do: raise ArgumentError, message: "delete not supported"
+
+  @spec ensure_all_started(any, any) :: {:ok, []}
   def ensure_all_started(_, _), do: {:ok, []}
+
+  @spec insert(any, any, any, any, any, any) :: no_return
   def insert(_, _, _, _, _, _), do: raise ArgumentError, message: "insert not supported"
+
+  @spec insert_all(any, any, any, any, any, any, any) :: no_return
   def insert_all(_, _, _, _, _, _, _), do: raise ArgumentError, message: "insert_all not supported"
 end
