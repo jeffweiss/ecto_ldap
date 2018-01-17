@@ -4,7 +4,7 @@ defmodule EctoLdap.Mixfile do
     An Ecto adapter for LDAP
   """
 
-  def project do
+  def project() do
     [app: :ecto_ldap,
      version: "0.3.1",
      elixir: "~> 1.3",
@@ -40,7 +40,7 @@ defmodule EctoLdap.Mixfile do
   # Configuration for the OTP application
   #
   # Type "mix help compile.app" for more information
-  def application do
+  def application() do
     [applications: [:logger, :ecto, :timex, :timex_ecto]]
   end
 
@@ -53,9 +53,9 @@ defmodule EctoLdap.Mixfile do
   #   {:mydep, git: "https://github.com/elixir-lang/mydep.git", tag: "0.1.0"}
   #
   # Type "mix help deps" for more examples and options
-  defp deps do
+  defp deps() do
     [
-      {:ecto, "~> 2.0"},
+      {:ecto, "~> 2.2"},
       {:timex, "~> 3.0"},
       {:timex_ecto, "~> 3.0"},
       {:excoveralls, "~> 0.5", only: :test},
@@ -65,7 +65,7 @@ defmodule EctoLdap.Mixfile do
     ]
   end
 
-  defp package do
+  defp package() do
     [ maintainers: ["Jeff Weiss", "Manny Batule"],
       licenses: ["MIT"],
       links: %{"Github" => "https://github.com/jeffweiss/ecto_ldap"} ]

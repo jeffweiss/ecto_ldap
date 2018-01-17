@@ -90,7 +90,8 @@ defmodule EctoLdapTest do
   test "update with empty list comes back nil" do
     TestUser
     |> TestRepo.get("uid=manny,ou=users,dc=example,dc=com")
-    |> TestUser.changeset(%{"skills" => []})
+    |> TestUser.changeset(%{})
+    |> Ecto.Changeset.put_change(:skills, [])
     |> TestRepo.update
 
     updated_user = TestRepo.get(TestUser, "uid=manny,ou=users,dc=example,dc=com")
@@ -103,7 +104,9 @@ defmodule EctoLdapTest do
 
     TestUser
     |> TestRepo.get("uid=manny,ou=users,dc=example,dc=com")
-    |> TestUser.changeset(%{"sn" => surname, "mail" => mail})
+    |> TestUser.changeset(%{})
+    |> Ecto.Changeset.put_change(:sn, surname)
+    |> Ecto.Changeset.put_change(:mail, mail)
     |> TestRepo.update
 
     updated_user = TestRepo.get(TestUser, "uid=manny,ou=users,dc=example,dc=com")
@@ -227,7 +230,7 @@ defmodule EctoLdapTest do
 
   test "query for multiple attributes across multiple records returns selected attributes in a list of lists" do
     values = TestRepo.all(Ecto.Query.from(u in TestUser, where: u.st == "OR", select: [u.uid, u.uidNumber]))
-    assert values == [["jeff.weiss", ['5001']], ["manny", ['5002']]]
+    assert values == [["jeff.weiss", "5001"], ["manny", "5002"]]
   end
 
   test "query for bound variable in array attribute" do
