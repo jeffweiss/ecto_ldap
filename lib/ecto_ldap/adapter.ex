@@ -4,6 +4,10 @@ defmodule Ecto.Ldap.Adapter do
   import Ecto.Ldap.Adapter.Converter
 
   @behaviour Ecto.Adapter
+  @behaviour Ecto.Adapter.Storage
+
+  def storage_up(_), do: {:error, :already_up}
+  def storage_down(_), do: {:error, :already_down}
 
   defdelegate loaders(primitive, type), to: Ecto.Ldap.Adapter.Loaders
   defdelegate dumpers(primitive, type), to: Ecto.Ldap.Adapter.Dumpers
